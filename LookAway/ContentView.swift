@@ -14,7 +14,12 @@ struct ContentView: View {
                 .imageScale(.large)
                 .foregroundStyle(.tint)
             Text("Hello, world!")
+            Button("Close") {
+                NSApp.keyWindow?.close()
+            }
+            .keyboardShortcut(.escape, modifiers: [])
         }
+        .frame(width: 600, height: 600)
         .padding()
     }
 }

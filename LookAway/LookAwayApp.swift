@@ -11,28 +11,43 @@ import SwiftUI
 struct LookAwayApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
-        Settings {
-            EmptyView()
+        // To provide a popover like window see
+        // https://developer.apple.com/documentation/swiftui/menubarextra
+        MenuBarExtra("Look Away", systemImage: "eye") {
+            Button("Preview") {
+                appDelegate.openPreviewWindow()
+            }
+            Divider()
+            Button("Quit LookAway") {
+                NSApplication.shared.terminate(nil)
+            }.keyboardShortcut("q")
         }
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var statusItem: NSStatusItem?
+    var previewWindow: NSWindow?
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "eye", accessibilityDescription: "Look Away")
+    func applicationDidFinishLaunching(_ notification: Notification) {}
+
+    @objc func openPreviewWindow() {
+        if previewWindow == nil {
+            let contentView = ContentView()
+            previewWindow = NSWindow(
+                contentRect: .zero,
+                styleMask: [
+                    .titled,
+                    .closable,
+                    .fullSizeContentView
+                ],
+                backing: .buffered,
+                defer: false)
+            previewWindow?.center()
+            previewWindow?.level = .floating
+            previewWindow?.isReleasedWhenClosed = false
+            previewWindow?.contentView = NSHostingView(rootView: contentView)
         }
-        // Create the menu
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Quit LookAway", action: #selector(quitApp), keyEquivalent: "q"))
-        menu.items.last?.target = self
-        statusItem?.menu = menu
-    }
-
-    @objc func quitApp() {
-        NSApplication.shared.terminate(nil)
+        previewWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
