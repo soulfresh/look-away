@@ -6,12 +6,31 @@
 //
 
 import Testing
+import Foundation
 @testable import LookAway
 
 struct LookAwayTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test("Properties are initialized correctly")
+    func testRemainingTime_isInitialized() {
+        // given
+        let appDelegate = AppDelegate()
+
+        // then
+        #expect(appDelegate.remainingTime == 15 * 60)
+        #expect(appDelegate.remainingTime == appDelegate.countdownDuration)
+        #expect(appDelegate.countdownLabel == "15:00")
     }
 
+    @Test("Timer is created after applicationDidFinishLaunching")
+    func testTimer_isCreated() {
+        // given
+        let appDelegate = AppDelegate()
+
+        // when
+        appDelegate.applicationDidFinishLaunching(Notification(name: .init("test")))
+
+        // then
+        #expect(appDelegate.timer != nil)
+    }
 }

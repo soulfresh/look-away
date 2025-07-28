@@ -42,14 +42,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     var timer: Timer?
     // TODO Make this configurable
     let countdownDuration: TimeInterval = 15 * 60 // 15 minutes
-    @Published var remainingTime: TimeInterval
-    @Published var countdownLabel: String = ""
+    @Published var remainingTime: TimeInterval = 15 * 60
+    @Published var countdownLabel: String = "15:00"
 
     override init() {
         self.remainingTime = countdownDuration
+        self.countdownLabel = TimeFormatter.format(duration: countdownDuration)
         super.init()
-        // Now that the object is initialized, we can call our method.
-        self.updateLabel()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -72,9 +71,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
 
     func updateLabel() {
-        let minutes = Int(remainingTime) / 60
-        let seconds = Int(remainingTime) % 60
-        countdownLabel = String(format: "%02d:%02d", minutes, seconds)
+        countdownLabel = TimeFormatter.format(duration: remainingTime)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
