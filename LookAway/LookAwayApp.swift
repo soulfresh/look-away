@@ -13,7 +13,7 @@ struct LookAwayApp: App {
     var body: some Scene {
         // To provide a popover like window see
         // https://developer.apple.com/documentation/swiftui/menubarextra
-        MenuBarExtra("Look Away", systemImage: "eye") {
+        MenuBarExtra {
             Button("Preview") {
                 appDelegate.openPreviewWindow()
             }
@@ -21,14 +21,66 @@ struct LookAwayApp: App {
             Button("Quit LookAway") {
                 NSApplication.shared.terminate(nil)
             }.keyboardShortcut("q")
+        } label: {
+            MenuBarLabelView(appDelegate: appDelegate)
         }
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-    var previewWindow: NSWindow?
+// TODO Move this into its own file?
+struct MenuBarLabelView: View {
+    @ObservedObject var appDelegate: AppDelegate
 
-    func applicationDidFinishLaunching(_ notification: Notification) {}
+    var body: some View {
+        Text(appDelegate.countdownLabel)
+        Image(systemName: "eye")
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
+    var previewWindow: NSWindow?
+    var timer: Timer?
+    // TODO Make this configurable
+    let countdownDuration: TimeInterval = 15 * 60 // 15 minutes
+    @Published var remainingTime: TimeInterval
+    @Published var countdownLabel: String = ""
+
+    override init() {
+        self.remainingTime = countdownDuration
+        super.init()
+        // Now that the object is initialized, we can call our method.
+        self.updateLabel()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Create a timer but don't schedule it on the default run loop mode.
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] timer in
+            guard let self = self else { return }
+
+            self.remainingTime -= 1
+
+            if self.remainingTime <= 0 {
+                print("Look Away")
+                // Reset the timer
+                self.remainingTime = self.countdownDuration
+            }
+            self.updateLabel()
+        }
+        self.timer = timer
+        // Add the timer to the main run loop for the common modes. This ensures the timer continues to fire even when the menu is open.
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    func updateLabel() {
+        let minutes = Int(remainingTime) / 60
+        let seconds = Int(remainingTime) % 60
+        countdownLabel = String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    func applicationWillTerminate(_ aNotification: Notification) {
+        // Invalidate the timer when the application is about to terminate.
+        timer?.invalidate()
+    }
 
     @objc func openPreviewWindow() {
         if previewWindow == nil {
