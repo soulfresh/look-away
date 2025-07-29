@@ -7,7 +7,7 @@ struct MenuBarLabelView: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        Text(appState.countdownLabel)
+        Text(TimeFormatter.format(duration: appState.remainingTime))
         Image(systemName: "eye")
     }
 }

@@ -14,11 +14,6 @@ class AppState: ObservableObject {
      * prevent interactions with the rest of the system.
      */
     @Published var isBlocking: Bool = false
-    
-    /**
-     * A formatted string representing the time remaining on the countdown timer (e.g., "14:59").
-     */
-    @Published var countdownLabel: String = ""
 
     /// The total duration of the countdown in seconds.
     let countdownDuration: TimeInterval = 15 * 60 // 15 minutes
@@ -35,7 +30,6 @@ class AppState: ObservableObject {
     init(clock: any Clock<Duration>) {
         self.clock = clock
         self.remainingTime = countdownDuration
-        self.countdownLabel = TimeFormatter.format(duration: countdownDuration)
         self.timerTask = Task { @MainActor in
             await startCountdown()
         }
@@ -51,8 +45,6 @@ class AppState: ObservableObject {
     @MainActor
     func startCountdown() async {
         while !Task.isCancelled {
-            updateLabel()
-
             if remainingTime <= 0 {
                 print("Look Away")
                 isBlocking = true
@@ -68,11 +60,6 @@ class AppState: ObservableObject {
                 break
             }
         }
-    }
-
-    @MainActor
-    internal func updateLabel() {
-        countdownLabel = TimeFormatter.format(duration: remainingTime)
     }
 
     func cancelTimer() {
