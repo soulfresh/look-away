@@ -107,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                     backing: .buffered,
                     defer: false
                 )
-                window.level = .floating
+                window.level = .screenSaver
                 window.isReleasedWhenClosed = false
                 window.contentView = NSHostingView(rootView: contentView)
                 previewWindows.append(window)
