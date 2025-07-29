@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct ContentView: View {
+    // This view now gets the AppState from the environment.
+    @EnvironmentObject var appState: AppState
+
     var body: some View {
         HStack {
             Spacer()
@@ -18,7 +21,8 @@ struct ContentView: View {
                     .foregroundStyle(.tint)
                 Text("Hello, world!")
                 Button("Close") {
-                    NSApp.keyWindow?.close()
+                    // This button now changes the state on the central AppState object.
+                    appState.isShowingPreview = false
                 }
                 .keyboardShortcut(.escape, modifiers: [])
                 
@@ -31,5 +35,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    // We need to provide a dummy AppState for the preview to work.
+    ContentView().environmentObject(AppState())
 }

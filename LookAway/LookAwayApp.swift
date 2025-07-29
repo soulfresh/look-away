@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 @main
 struct LookAwayApp: App {
@@ -15,92 +16,55 @@ struct LookAwayApp: App {
         // https://developer.apple.com/documentation/swiftui/menubarextra
         MenuBarExtra {
             Button("Preview") {
-                appDelegate.openPreviewWindow()
+                // This button now changes the state on the central AppState object.
+                appDelegate.appState.isShowingPreview = true
             }
             Divider()
             Button("Quit LookAway") {
                 NSApplication.shared.terminate(nil)
             }.keyboardShortcut("q")
         } label: {
-            MenuBarLabelView(appDelegate: appDelegate)
+            // Pass the AppState directly to the initializer.
+            MenuBarLabelView(appState: appDelegate.appState)
         }
     }
 }
 
-// TODO Move this into its own file?
-struct MenuBarLabelView: View {
-    @ObservedObject var appDelegate: AppDelegate
-
-    var body: some View {
-        Text(appDelegate.countdownLabel)
-        Image(systemName: "eye")
-    }
-}
-
-class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
-    var previewWindows: [NSWindow] = []
-    private var timerTask: Task<Void, Never>?
-    // TODO Make this configurable
-    let countdownDuration: TimeInterval = 15 * 60 // 15 minutes
-    @Published var remainingTime: TimeInterval
-    @Published var countdownLabel: String = ""
-
-    private let clock: any Clock<Duration>
-
-    init(clock: any Clock<Duration>) {
-        self.clock = clock
-        self.remainingTime = countdownDuration
-        self.countdownLabel = TimeFormatter.format(duration: countdownDuration)
-        super.init()
-    }
+class AppDelegate: NSObject, NSApplicationDelegate {
+    // The AppDelegate now owns the AppState.
+    let appState = AppState()
     
-    override convenience init() {
-        self.init(clock: ContinuousClock())
-    }
+    var previewWindows: [NSWindow] = []
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        timerTask = Task {
-            await startCountdown()
-        }
-    }
-
-    @MainActor
-    func startCountdown() async {
-        while !Task.isCancelled {
-            updateLabel()
-
-            if remainingTime <= 0 {
-                print("Look Away")
-                // Reset the timer
-                remainingTime = countdownDuration
+        // Subscribe to changes in AppState.isShowingPreview and react accordingly.
+        appState.$isShowingPreview
+            .removeDuplicates()
+            .sink { [weak self] isShowing in
+                Task { @MainActor in
+                    if isShowing {
+                        self?.showPreviewWindows()
+                    } else {
+                        self?.closePreviewWindows()
+                    }
+                }
             }
-
-            do {
-                try await clock.sleep(for: .seconds(1))
-                remainingTime -= 1
-            } catch {
-                // The sleep was cancelled, so we can exit the loop.
-                break
-            }
-        }
-    }
-
-    @MainActor
-    func updateLabel() {
-        countdownLabel = TimeFormatter.format(duration: remainingTime)
+            .store(in: &cancellables)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        // Invalidate the timer task when the application is about to terminate.
-        timerTask?.cancel()
+        // Cancel the timer task when the application is about to terminate.
+        appState.cancelTimer()
     }
 
     @MainActor
-    @objc func openPreviewWindow() {
+    func showPreviewWindows() {
         // If the windows haven't been created yet, create one for each screen.
         if previewWindows.isEmpty {
             for screen in NSScreen.screens {
-                let contentView = ContentView()
+                // The ContentView will get the AppState from the environment.
+                let contentView = ContentView().environmentObject(appState)
                 let window = KeyWindow(
                     contentRect: screen.frame,
                     styleMask: [.borderless],
@@ -110,6 +74,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 window.level = .screenSaver
                 window.isReleasedWhenClosed = false
                 window.contentView = NSHostingView(rootView: contentView)
+                // Give the window a reference to the AppState to handle the Escape key
+                window.appState = self.appState
                 previewWindows.append(window)
             }
         }
@@ -119,5 +85,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             window.makeKeyAndOrderFront(nil)
         }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor
+    func closePreviewWindows() {
+        for window in previewWindows {
+            window.close()
+        }
+        previewWindows.removeAll()
     }
 }
