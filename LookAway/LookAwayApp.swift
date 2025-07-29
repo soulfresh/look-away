@@ -1,12 +1,5 @@
-//
-//  LookAwayApp.swift
-//  LookAway
-//
-//  Created by robert marc wren on 5/30/25.
-//
-
-import SwiftUI
 import Combine
+import SwiftUI
 
 @main
 struct LookAwayApp: App {
@@ -16,30 +9,34 @@ struct LookAwayApp: App {
         // https://developer.apple.com/documentation/swiftui/menubarextra
         MenuBarExtra {
             Button("Preview") {
-                // This button now changes the state on the central AppState object.
-                appDelegate.appState.isShowingPreview = true
+                appDelegate.appState.isBlocking = true
             }
             Divider()
             Button("Quit LookAway") {
                 NSApplication.shared.terminate(nil)
             }.keyboardShortcut("q")
         } label: {
-            // Pass the AppState directly to the initializer.
             MenuBarLabelView(appState: appDelegate.appState)
         }
     }
 }
 
+/**
+ * The AppDelegate class manages the application lifecycle and provides the main window management.
+ * The AppDelegate is required because SwiftUI does not provide an easy way to create system menu bar applications at this time.
+ */
 class AppDelegate: NSObject, NSApplicationDelegate {
-    // The AppDelegate now owns the AppState.
+    /**
+     * The AppState object that holds the state of the application.
+     */
     let appState = AppState()
-    
+
     var previewWindows: [NSWindow] = []
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Subscribe to changes in AppState.isShowingPreview and react accordingly.
-        appState.$isShowingPreview
+        appState.$isBlocking
             .removeDuplicates()
             .sink { [weak self] isShowing in
                 Task { @MainActor in
@@ -58,6 +55,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appState.cancelTimer()
     }
 
+    /**
+     * Shows the window blockers that cover the user's screen.
+     */
     @MainActor
     func showPreviewWindows() {
         // If the windows haven't been created yet, create one for each screen.
@@ -87,6 +87,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /**
+     * Closes all window blockers, allowing the user access to their computer again.
+     */
     @MainActor
     func closePreviewWindows() {
         for window in previewWindows {

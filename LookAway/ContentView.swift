@@ -1,14 +1,12 @@
-//
-//  ContentView.swift
-//  LookAway
-//
-//  Created by robert marc wren on 5/30/25.
-//
-
 import SwiftUI
 
+/**
+ * The root view for the UI that is displayed when the app is blocking user interaction.
+ *
+ * This view is responsible for rendering the user interface that appears on the
+ * full-screen preview windows.
+ */
 struct ContentView: View {
-    // This view now gets the AppState from the environment.
     @EnvironmentObject var appState: AppState
 
     var body: some View {
@@ -21,8 +19,7 @@ struct ContentView: View {
                     .foregroundStyle(.tint)
                 Text("Hello, world!")
                 Button("Close") {
-                    // This button now changes the state on the central AppState object.
-                    appState.isShowingPreview = false
+                    appState.isBlocking = false
                 }
                 .keyboardShortcut(.escape, modifiers: [])
                 
@@ -35,6 +32,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    // We need to provide a dummy AppState for the preview to work.
     ContentView().environmentObject(AppState())
 }
