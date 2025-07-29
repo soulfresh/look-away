@@ -38,65 +38,86 @@ struct MenuBarLabelView: View {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
-    var previewWindow: NSWindow?
-    var timer: Timer?
+    var previewWindows: [NSWindow] = []
+    private var timerTask: Task<Void, Never>?
     // TODO Make this configurable
     let countdownDuration: TimeInterval = 15 * 60 // 15 minutes
-    @Published var remainingTime: TimeInterval = 15 * 60
-    @Published var countdownLabel: String = "15:00"
+    @Published var remainingTime: TimeInterval
+    @Published var countdownLabel: String = ""
 
-    override init() {
+    private let clock: any Clock<Duration>
+
+    init(clock: any Clock<Duration>) {
+        self.clock = clock
         self.remainingTime = countdownDuration
         self.countdownLabel = TimeFormatter.format(duration: countdownDuration)
         super.init()
     }
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        // Create a timer but don't schedule it on the default run loop mode.
-        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] timer in
-            guard let self = self else { return }
-
-            self.remainingTime -= 1
-
-            if self.remainingTime <= 0 {
-                print("Look Away")
-                // Reset the timer
-                self.remainingTime = self.countdownDuration
-            }
-            self.updateLabel()
-        }
-        self.timer = timer
-        // Add the timer to the main run loop for the common modes. This ensures the timer continues to fire even when the menu is open.
-        RunLoop.main.add(timer, forMode: .common)
+    
+    override convenience init() {
+        self.init(clock: ContinuousClock())
     }
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        timerTask = Task {
+            await startCountdown()
+        }
+    }
+
+    @MainActor
+    func startCountdown() async {
+        while !Task.isCancelled {
+            updateLabel()
+
+            if remainingTime <= 0 {
+                print("Look Away")
+                // Reset the timer
+                remainingTime = countdownDuration
+            }
+
+            do {
+                try await clock.sleep(for: .seconds(1))
+                remainingTime -= 1
+            } catch {
+                // The sleep was cancelled, so we can exit the loop.
+                break
+            }
+        }
+    }
+
+    @MainActor
     func updateLabel() {
         countdownLabel = TimeFormatter.format(duration: remainingTime)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        // Invalidate the timer when the application is about to terminate.
-        timer?.invalidate()
+        // Invalidate the timer task when the application is about to terminate.
+        timerTask?.cancel()
     }
 
+    @MainActor
     @objc func openPreviewWindow() {
-        if previewWindow == nil {
-            let contentView = ContentView()
-            previewWindow = NSWindow(
-                contentRect: .zero,
-                styleMask: [
-                    .titled,
-                    .closable,
-                    .fullSizeContentView
-                ],
-                backing: .buffered,
-                defer: false)
-            previewWindow?.center()
-            previewWindow?.level = .floating
-            previewWindow?.isReleasedWhenClosed = false
-            previewWindow?.contentView = NSHostingView(rootView: contentView)
+        // If the windows haven't been created yet, create one for each screen.
+        if previewWindows.isEmpty {
+            for screen in NSScreen.screens {
+                let contentView = ContentView()
+                let window = KeyWindow(
+                    contentRect: screen.frame,
+                    styleMask: [.borderless],
+                    backing: .buffered,
+                    defer: false
+                )
+                window.level = .floating
+                window.isReleasedWhenClosed = false
+                window.contentView = NSHostingView(rootView: contentView)
+                previewWindows.append(window)
+            }
         }
-        previewWindow?.makeKeyAndOrderFront(nil)
+
+        // Show all the windows.
+        for window in previewWindows {
+            window.makeKeyAndOrderFront(nil)
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 }

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		63D122AD2E3827BB00DAEFF4 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 63D122AC2E3827BB00DAEFF4 /* Clocks */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		638B05BE2DEA3D450052CFD2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		6348B1DE2E38206A000A6A4C /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
 		638B05AF2DEA3D440052CFD2 /* LookAway.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LookAway.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		638B05BD2DEA3D450052CFD2 /* LookAwayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LookAwayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		638B05C72DEA3D450052CFD2 /* LookAwayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LookAwayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -59,6 +64,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63D122AD2E3827BB00DAEFF4 /* Clocks in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,12 +78,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6348B1DD2E38206A000A6A4C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6348B1DE2E38206A000A6A4C /* Testing.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		638B05A62DEA3D440052CFD2 = {
 			isa = PBXGroup;
 			children = (
 				638B05B12DEA3D440052CFD2 /* LookAway */,
 				638B05C02DEA3D450052CFD2 /* LookAwayTests */,
 				638B05CA2DEA3D450052CFD2 /* LookAwayUITests */,
+				6348B1DD2E38206A000A6A4C /* Frameworks */,
 				638B05B02DEA3D440052CFD2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -135,6 +150,7 @@
 			);
 			name = LookAwayTests;
 			packageProductDependencies = (
+				63D122AC2E3827BB00DAEFF4 /* Clocks */,
 			);
 			productName = LookAwayTests;
 			productReference = 638B05BD2DEA3D450052CFD2 /* LookAwayTests.xctest */;
@@ -195,6 +211,9 @@
 			);
 			mainGroup = 638B05A62DEA3D440052CFD2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				63D122AB2E3827BB00DAEFF4 /* XCRemoteSwiftPackageReference "swift-clocks" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 638B05B02DEA3D440052CFD2 /* Products */;
 			projectDirPath = "";
@@ -546,6 +565,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		63D122AB2E3827BB00DAEFF4 /* XCRemoteSwiftPackageReference "swift-clocks" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-clocks";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		63D122AC2E3827BB00DAEFF4 /* Clocks */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 63D122AB2E3827BB00DAEFF4 /* XCRemoteSwiftPackageReference "swift-clocks" */;
+			productName = Clocks;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 638B05A72DEA3D440052CFD2 /* Project object */;
 }

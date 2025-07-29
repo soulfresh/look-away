@@ -9,17 +9,23 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-            Button("Close") {
-                NSApp.keyWindow?.close()
+        HStack {
+            Spacer()
+            VStack {
+                Spacer()
+                Image(systemName: "globe")
+                    .imageScale(.large)
+                    .foregroundStyle(.tint)
+                Text("Hello, world!")
+                Button("Close") {
+                    NSApp.keyWindow?.close()
+                }
+                .keyboardShortcut(.escape, modifiers: [])
+                
+                Spacer()
             }
-            .keyboardShortcut(.escape, modifiers: [])
+            Spacer()
         }
-        .frame(width: 600, height: 600)
         .padding()
     }
 }
