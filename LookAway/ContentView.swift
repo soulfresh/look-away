@@ -17,7 +17,7 @@ struct ContentView: View {
                 Image(systemName: "globe")
                     .imageScale(.large)
                     .foregroundStyle(.tint)
-                Text("Hello, world!")
+                Text("Look away from the COMPUTER!")
                 Button("Close") {
                     appState.isBlocking = false
                 }
