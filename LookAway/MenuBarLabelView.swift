@@ -1,13 +1,11 @@
 import SwiftUI
 
-/**
- * The icon for our app in the system menu.
- */
+/// The icon for our app in the system menu.
 struct MenuBarLabelView: View {
-    @ObservedObject var appState: AppState
+  @ObservedObject var appState: AppState
 
-    var body: some View {
-        Text(TimeFormatter.format(duration: appState.remainingTime))
-        Image(systemName: "eye")
-    }
+  var body: some View {
+    Text(TimeFormatter.format(duration: appState.remainingTime))
+    Image(systemName: "eye")
+  }
 }
