@@ -9,7 +9,7 @@ struct LookAwayApp: App {
     // https://developer.apple.com/documentation/swiftui/menubarextra
     MenuBarExtra {
       Button("Preview") {
-        appDelegate.appState.isBlocking = true
+        appDelegate.appState.startBreak()
       }
       Divider()
       Button("Quit LookAway") {
@@ -23,6 +23,7 @@ struct LookAwayApp: App {
 
 /// The AppDelegate class manages the application lifecycle and provides the main window management.
 /// The AppDelegate is required because SwiftUI does not provide an easy way to create system menu bar applications at this time.
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
   /**
    * The AppState object that holds the state of the application.
@@ -37,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     appState.$isBlocking
       .removeDuplicates()
       .sink { [weak self] isShowing in
+        // TODO Does this need to be in a task since we're already on the main thread?
         Task { @MainActor in
           if isShowing {
             self?.showPreviewWindows()
@@ -64,16 +66,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // The ContentView will get the AppState from the environment.
         let contentView = ContentView().environmentObject(appState)
         let window = KeyWindow(
-          contentRect: screen.frame,
-          styleMask: [.borderless],
-          backing: .buffered,
-          defer: false
+          screen: screen,
+          contentView: NSHostingView(rootView: contentView),
+          appState: self.appState,
+          debug: true
         )
-        window.level = .screenSaver
-        window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: contentView)
-        // Give the window a reference to the AppState to handle the Escape key
-        window.appState = self.appState
         previewWindows.append(window)
       }
     }
