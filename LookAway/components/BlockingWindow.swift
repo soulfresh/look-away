@@ -16,14 +16,13 @@ class BlockingWindow: NSWindow {
   ) {
     self.appState = appState
 
-    let styleMask: NSWindow.StyleMask = debug ? [.closable, .titled] : [.borderless]
-    let level: NSWindow.Level = debug ? .floating : .screenSaver
     let w = 600.0
 
 //    print(
 //      "\(screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] ?? "Unknown screen") - \(screen.frame)"
 //    )
 //    print("Creating screen at \(screen.frame.minX + (screen.frame.width - w)/2) x \(screen.frame.minY + (screen.frame.height - w)/2)")
+    
     super.init(
       contentRect: debug ? NSRect(
         x: screen.frame.minX + (screen.frame.width - w)/2,
@@ -31,13 +30,17 @@ class BlockingWindow: NSWindow {
         width: w,
         height: w
       ) : screen.frame,
-      styleMask: styleMask,
+      styleMask: debug ? [.closable, .titled] : [.borderless],
       backing: .buffered,
       defer: false
     )
 
-    self.level = level
+    // Make sure we cover every desktop
+    self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    // Make sure we cover the entire screen
+    self.level = debug ? .floating : .screenSaver
     self.isReleasedWhenClosed = false
+    // Assign the window contents
     self.contentView = contentView
   }
 

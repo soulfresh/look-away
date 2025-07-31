@@ -30,10 +30,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
    */
   let appState = AppState()
 
-  var previewWindows: [NSWindow] = []
+  var blockerWindows: [NSWindow] = []
   private var cancellables = Set<AnyCancellable>()
 
+  private var defaultPresentationOptions: NSApplication.PresentationOptions = []
+
   func applicationDidFinishLaunching(_ notification: Notification) {
+    // Store the default presentation options so we can restore them later.
+    self.defaultPresentationOptions = NSApplication.shared.presentationOptions
+
     // Subscribe to changes in AppState.isShowingPreview and react accordingly.
     appState.$isBlocking
       .removeDuplicates()
@@ -56,23 +61,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
    * Shows the window blockers that cover the user's screen.
    */
   func openScreenBlockers() {
+    // Set presentation options to disable system features like app switching and Mission Control.
+    let restrictiveOptions: NSApplication.PresentationOptions = [
+      .hideDock,
+      .hideMenuBar,
+      .disableAppleMenu,
+      .disableProcessSwitching,
+      .disableHideApplication,
+    ]
+    NSApplication.shared.presentationOptions = restrictiveOptions
+
     // If the windows haven't been created yet, create one for each screen.
-    if previewWindows.isEmpty {
+    if blockerWindows.isEmpty {
       for screen in NSScreen.screens {
         // The ContentView will get the AppState from the environment.
-        let contentView = ContentView().environmentObject(appState)
+        let contentView = ContentView()
+          .environmentObject(appState)
+
         let window = BlockingWindow(
           screen: screen,
           contentView: NSHostingView(rootView: contentView),
           appState: self.appState,
 //          debug: true
         )
-        previewWindows.append(window)
+        blockerWindows.append(window)
       }
     }
 
     // Show all the windows.
-    for window in previewWindows {
+    for window in blockerWindows {
       window.makeKeyAndOrderFront(nil)
     }
     NSApp.activate(ignoringOtherApps: true)
@@ -81,12 +98,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   /**
    * Closes all window blockers, allowing the user access to their computer again.
    */
-  @MainActor
   func closeScreenBlockers() {
-    for window in previewWindows {
+    // Restore the default presentation options.
+    NSApplication.shared.presentationOptions = defaultPresentationOptions
+
+    for window in blockerWindows {
       window.close()
     }
-    previewWindows.removeAll()
+    blockerWindows.removeAll()
     appState.performance.timeEnd("close-windows")
   }
 }
