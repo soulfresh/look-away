@@ -5,7 +5,7 @@ import Foundation
 ///
 /// This class is a self-contained state machine that manages its own timer
 /// and publishes its current phase.
-final class Break: ObservableObject {
+class Break: ObservableObject {
   /// The different phases a break can be in.
   enum Phase {
     case idle
@@ -44,8 +44,13 @@ final class Break: ObservableObject {
   }
 
   deinit {
+    print("Deinitializing Break instance")
     // Ensure all tasks are cancelled.
     cancel()
+  }
+  
+  var isRunning: Bool {
+    timerTask != nil
   }
 
   /// Starts the working phase of the break flow.
@@ -70,9 +75,12 @@ final class Break: ObservableObject {
         print("Break complete")
         // Finally, set the phase to finished.
         self.phase = Phase.finished
+        self.cancel()
       },
       errorHandler: { error in
+        print("Error in working phase: \(error)")
         self.phase = Phase.idle
+        self.cancel()
       }
     )
   }
@@ -94,9 +102,12 @@ final class Break: ObservableObject {
         print("Break complete")
         // After breaking, set the phase to finished.
         self.phase = Phase.finished
+        self.cancel()
       },
       errorHandler: { error in
+        print("Error in working phase: \(error)")
         self.phase = Phase.idle
+        self.cancel()
       }
     )
   }
@@ -152,6 +163,7 @@ final class Break: ObservableObject {
 
       // Update the published phase with the remaining time.
       self.phase = update(remaining)
+//      print("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
 
       // TODO Task has a sleep method. Do we still need Clock? Would we be able
       // to mock Task.sleep in tests?
@@ -170,6 +182,8 @@ final class Break: ObservableObject {
     timerTask = Task {
       do {
         try await operation()
+      } catch is CancellationError {
+        // If the task was cancelled, we simply exit without doing anything. This allows the task timer to stop without us handling it as an error.
       } catch {
         errorHandler(error)
       }
