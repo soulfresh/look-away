@@ -3,24 +3,6 @@ import Testing
 import Combine
 import Clocks
 
-// Add Equatable conformance to Break.Phase for testing
-extension Break.Phase: Equatable {
-  public static func == (lhs: Break.Phase, rhs: Break.Phase) -> Bool {
-    switch (lhs, rhs) {
-    case (.idle, .idle):
-      return true
-    case (.working(let lhsRemaining), .working(let rhsRemaining)):
-      return lhsRemaining == rhsRemaining
-    case (.breaking(let lhsRemaining), .breaking(let rhsRemaining)):
-      return lhsRemaining == rhsRemaining
-    case (.finished, .finished):
-      return true
-    default:
-      return false
-    }
-  }
-}
-
 final class BreakSpy: Break {
   var cancelCallCount = 0
   

@@ -47,6 +47,12 @@ class AppState: ObservableObject {
       self.schedule.startWorking()
     }
   }
+  
+//  deinit {
+//    print("Deinitializing Break instance")
+//    // Ensure all tasks are cancelled.
+//    cancelTimer()
+//  }
 
   /// Pause the current break cycle.
   func pause() {
