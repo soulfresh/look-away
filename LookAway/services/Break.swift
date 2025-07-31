@@ -16,27 +16,30 @@ final class Break: ObservableObject {
 
   /// The current phase of the break cycle, published for observers.
   @Published private(set) var phase: Phase = .idle
-
+  
   /// How often the break repeats in seconds.
   let frequency: TimeInterval
 
   /// How long the break lasts in seconds.
   let duration: TimeInterval
 
+  private let performance: PerformanceTimer
   private var timerTask: Task<Void, Never>?
   private let clock: any Clock<Duration>
 
   /// - Parameter frequency: The frequency of the break in seconds.
   /// - Parameter duration: The duration of the break in seconds.
+  /// - Parameter performance: A `PerformanceTimer` instance for measuring performance.
   /// - Parameter clock: The clock to use for time-based operations, defaults to `ContinuousClock`. This is useful for controlling the timing of the break in tests or different environments.
   init(
     frequency: TimeInterval,
     duration: TimeInterval,
-    //    onPhaseChange phaseHandler: @escaping ((Phase) -> Void),
+    performance: PerformanceTimer,
     clock: any Clock<Duration> = ContinuousClock()
   ) {
     self.frequency = frequency
     self.duration = duration
+    self.performance = performance
     self.clock = clock
   }
 

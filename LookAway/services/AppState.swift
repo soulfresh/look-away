@@ -12,6 +12,9 @@ class AppState: ObservableObject {
 
   /// The remaining time displayed in the menu bar, driven by the active break.
   @Published private(set) var remainingTime: TimeInterval = 0
+  
+  /// A timer that can be used for performance measurements.
+  public let performance = PerformanceTimer()
 
   // For now, the schedule contains a single, hardcoded break.
   private var schedule: Break
@@ -27,17 +30,13 @@ class AppState: ObservableObject {
     self.schedule = Break(
       frequency: 10,
       duration: 5,
+      performance: performance,
       clock: clock
     )
-    
+
     // Watch for changes in the break phase and update the app state accordingly.
     schedule.$phase
-      .throttle(
-        // Ensure we never overwhelm the main thread with updates.
-        for: .seconds(1),
-        scheduler: DispatchQueue.main,
-        latest: true
-      )
+      .receive(on: DispatchQueue.main)
       .sink { [weak self] phase in
         self?.handleBreakPhaseChange(phase)
       }

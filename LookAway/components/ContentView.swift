@@ -17,6 +17,7 @@ struct ContentView: View {
           .foregroundStyle(.tint)
         Text("Look away from the COMPUTER!")
         Button("Close") {
+          appState.performance.time("close-windows")
           appState.startWorking()
         }
         .keyboardShortcut(.escape, modifiers: [])

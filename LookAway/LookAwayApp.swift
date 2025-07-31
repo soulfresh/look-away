@@ -38,13 +38,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     appState.$isBlocking
       .removeDuplicates()
       .sink { [weak self] isShowing in
-        // TODO Does this need to be in a task since we're already on the main thread?
-        Task { @MainActor in
-          if isShowing {
-            self?.showPreviewWindows()
-          } else {
-            self?.closePreviewWindows()
-          }
+        if isShowing {
+          self?.showPreviewWindows()
+        } else {
+          self?.closePreviewWindows()
         }
       }
       .store(in: &cancellables)
@@ -58,7 +55,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   /**
    * Shows the window blockers that cover the user's screen.
    */
-  @MainActor
   func showPreviewWindows() {
     // If the windows haven't been created yet, create one for each screen.
     if previewWindows.isEmpty {
@@ -91,5 +87,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       window.close()
     }
     previewWindows.removeAll()
+    appState.performance.timeEnd("close-windows")
   }
 }

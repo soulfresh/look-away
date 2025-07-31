@@ -18,9 +18,15 @@ class KeyWindow: NSWindow {
 
     let styleMask: NSWindow.StyleMask = debug ? [.closable, .titled] : [.borderless]
     let level: NSWindow.Level = debug ? .floating : .screenSaver
+    let w = 600.0
 
     super.init(
-      contentRect: debug ? NSRect(x: 0, y: 0, width: 600, height: 600) : screen.frame,
+      contentRect: debug ? NSRect(
+        x: (screen.frame.width - w)/2,
+        y: (screen.frame.height - w)/2,
+        width: w,
+        height: w
+      ) : screen.frame,
       styleMask: styleMask,
       backing: .buffered,
       defer: false
@@ -43,6 +49,7 @@ class KeyWindow: NSWindow {
     // If the Escape key was pressed, hide the preview windows.
     if event.keyCode == 53 {
       print("--- Escape key pressed ---")
+      appState?.performance.time("close-windows")
       appState?.startWorking()
     } else {
       // Pass other key events to the superclass.
