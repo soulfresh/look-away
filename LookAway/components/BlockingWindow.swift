@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A custom `NSWindow` subclass used to block user interactions with other applications.
-class KeyWindow: NSWindow {
+class BlockingWindow: NSWindow {
   var appState: AppState?
 
   /// - Parameter screen: The screen on which the window will be displayed.
@@ -12,7 +12,7 @@ class KeyWindow: NSWindow {
     screen: NSScreen,
     contentView: NSHostingView<some View>,
     appState: AppState,
-    debug: Bool
+    debug: Bool = false
   ) {
     self.appState = appState
 
@@ -20,10 +20,14 @@ class KeyWindow: NSWindow {
     let level: NSWindow.Level = debug ? .floating : .screenSaver
     let w = 600.0
 
+//    print(
+//      "\(screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] ?? "Unknown screen") - \(screen.frame)"
+//    )
+//    print("Creating screen at \(screen.frame.minX + (screen.frame.width - w)/2) x \(screen.frame.minY + (screen.frame.height - w)/2)")
     super.init(
       contentRect: debug ? NSRect(
-        x: (screen.frame.width - w)/2,
-        y: (screen.frame.height - w)/2,
+        x: screen.frame.minX + (screen.frame.width - w)/2,
+        y: screen.frame.minY + (screen.frame.height - w)/2,
         width: w,
         height: w
       ) : screen.frame,

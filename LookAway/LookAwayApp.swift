@@ -8,7 +8,7 @@ struct LookAwayApp: App {
     // To provide a popover like window see
     // https://developer.apple.com/documentation/swiftui/menubarextra
     MenuBarExtra {
-      Button("Preview") {
+      Button("Take a Break") {
         appDelegate.appState.startBreak()
       }
       Divider()
@@ -39,9 +39,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
       .removeDuplicates()
       .sink { [weak self] isShowing in
         if isShowing {
-          self?.showPreviewWindows()
+          self?.openScreenBlockers()
         } else {
-          self?.closePreviewWindows()
+          self?.closeScreenBlockers()
         }
       }
       .store(in: &cancellables)
@@ -55,17 +55,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
   /**
    * Shows the window blockers that cover the user's screen.
    */
-  func showPreviewWindows() {
+  func openScreenBlockers() {
     // If the windows haven't been created yet, create one for each screen.
     if previewWindows.isEmpty {
       for screen in NSScreen.screens {
         // The ContentView will get the AppState from the environment.
         let contentView = ContentView().environmentObject(appState)
-        let window = KeyWindow(
+        let window = BlockingWindow(
           screen: screen,
           contentView: NSHostingView(rootView: contentView),
           appState: self.appState,
-          debug: true
+//          debug: true
         )
         previewWindows.append(window)
       }
@@ -82,7 +82,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
    * Closes all window blockers, allowing the user access to their computer again.
    */
   @MainActor
-  func closePreviewWindows() {
+  func closeScreenBlockers() {
     for window in previewWindows {
       window.close()
     }
