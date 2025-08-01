@@ -76,14 +76,28 @@ class AppState: ObservableObject {
   }
 
   /// Start the break portion of the current break cycle.
-  func startBreak() {
-    schedule.startBreak()
+  func startBreak(_ breakDuration: TimeInterval? = nil) {
+    schedule.startBreak(breakDuration)
   }
 
   /// Start the next break cycle. This will enter into the working portion of
   /// that cycle.
-  func startWorking() {
-    schedule.startWorking()
+  func startWorking(_ workingDuration: TimeInterval? = nil) {
+    schedule.startWorking(workingDuration)
+  }
+  
+  /// Rewind to the working phase of the current break in our schedule.
+  /// - Parameter duration The amount of time to work for before restarting the current break phase.
+  func delay(_ duration: TimeInterval) {
+    performance.time("close-windows")
+    // TODO This will advance to the next break in our schedule but we really want to rewind to the working phase of the current break in our schedule.
+    startWorking(duration)
+  }
+  
+  /// Skip the current break and immediately start the working phase of the next break.
+  func skip() {
+    performance.time("close-windows")
+    startWorking()
   }
 
   /// Updates the AppState based on the current phase of the active break.

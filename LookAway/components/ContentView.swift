@@ -16,11 +16,19 @@ struct ContentView: View {
           .imageScale(.large)
           .foregroundStyle(.tint)
         Text("Look away from the COMPUTER!")
-        Button("Close") {
-          appState.performance.time("close-windows")
-          appState.startWorking()
+        
+        Button("Skip (Esc)") {
+          appState.skip()
         }
-        .keyboardShortcut(.escape, modifiers: [])
+        Button("Delay 1min (1)") {
+          appState.delay(60)
+        }
+        Button("Delay 5mins (5)") {
+          appState.delay(60 * 5)
+        }
+        Button("Delay 10mins (0)") {
+          appState.delay(60 * 10)
+        }
 
         Spacer()
       }
