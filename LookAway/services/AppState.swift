@@ -9,6 +9,7 @@ class AppState: ObservableObject {
    * prevent interactions with the rest of the system.
    */
   @Published private(set) var isBlocking: Bool = false
+  @Published private(set) var isPaused: Bool = false
 
   /// The remaining time displayed in the menu bar, driven by the active break.
   @Published private(set) var remainingTime: TimeInterval = 0
@@ -34,13 +35,20 @@ class AppState: ObservableObject {
       clock: clock
     )
 
-    // Watch for changes in the break phase and update the app state accordingly.
+    // Watch for changes in the break phase and update the "blocking" state.
     schedule.$phase
       .receive(on: DispatchQueue.main)
       .sink { [weak self] phase in
         self?.handleBreakPhaseChange(phase)
       }
       .store(in: &cancellables)
+    
+    // Watch for changes in the break's `isRunning` state and publish that as `isPaused`.
+    schedule.$isRunning
+      // Map to the inverse of `isRunning`
+      .map { !$0 }
+      .receive(on: DispatchQueue.main)
+      .assign(to: &$isPaused)
 
     // Start the break cycle.
     Task {
@@ -56,6 +64,15 @@ class AppState: ObservableObject {
   /// Resume the current break cycle.
   func resume() {
     schedule.resume()
+  }
+  
+  /// Toggle whether the schedule is currently paused.
+  func togglePaused() {
+    if isPaused {
+      resume()
+    } else {
+      pause()
+    }
   }
 
   /// Start the break portion of the current break cycle.

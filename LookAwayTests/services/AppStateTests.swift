@@ -17,6 +17,7 @@ struct AppStateTests {
 
     #expect(appState.isBlocking == false)
     #expect(appState.remainingTime == 10)
+    #expect(appState.isPaused == false)
 
     await clock.advance(by: .seconds(1))
 
@@ -41,6 +42,7 @@ struct AppStateTests {
     await clock.advance(by: .seconds(1))
     #expect(appState.isBlocking == true)
     #expect(appState.remainingTime == 5)
+    #expect(appState.isPaused == false)
 
     // Advance through the breaking phase
     await clock.advance(by: .seconds(5))
@@ -50,6 +52,7 @@ struct AppStateTests {
     await clock.advance(by: .seconds(1))
     #expect(appState.isBlocking == false)
     #expect(appState.remainingTime == 10)
+    #expect(appState.isPaused == false)
   }
 
   @Test("Should be able to start working when in the middle of a break.")
@@ -68,6 +71,7 @@ struct AppStateTests {
 
     #expect(appState.isBlocking == false)
     #expect(appState.remainingTime == 10)
+    #expect(appState.isPaused == false)
   }
 
   @Test("Should be able to start the next break when in the working phase.")
@@ -86,6 +90,7 @@ struct AppStateTests {
 
     #expect(appState.isBlocking == true)
     #expect(appState.remainingTime == 5)
+    #expect(appState.isPaused == false)
   }
 
   @Test("Should be able to pause and resume when in the working phase.")
@@ -96,6 +101,7 @@ struct AppStateTests {
     // Start in the working phase and advance a bit
     await clock.advance(by: .seconds(3))
     #expect(appState.remainingTime == 7)
+    #expect(appState.isPaused == false)
 
     // Pause the timer
     appState.pause()
@@ -103,6 +109,7 @@ struct AppStateTests {
     // Advance the clock; time should not change
     await clock.advance(by: .seconds(5))
     #expect(appState.remainingTime == 7)
+    #expect(appState.isPaused == true)
 
     // Resume the timer
     appState.resume()
@@ -111,6 +118,43 @@ struct AppStateTests {
     // Time should now decrease again
     await clock.advance(by: .seconds(1))
     #expect(appState.remainingTime == 6)
+    #expect(appState.isPaused == false)
+  }
+
+  @Test("Should be able to toggle the paused state.")
+  func testTogglePause() async {
+    let clock = TestClock()
+    let appState = AppState(clock: clock)
+
+    // Start in the working phase and advance a bit
+    await clock.advance(by: .seconds(3))
+    #expect(appState.remainingTime == 7)
+    #expect(appState.isPaused == false)
+
+    // Pause the timer
+    appState.togglePaused()
+
+    // Advance the clock; time should not change
+    await clock.advance(by: .seconds(5))
+    #expect(appState.remainingTime == 7)
+    #expect(appState.isPaused == true)
+
+    // Resume the timer
+    appState.togglePaused()
+    await clock.advance(by: .zero)
+
+    // Time should now decrease again
+    await clock.advance(by: .seconds(1))
+    #expect(appState.remainingTime == 6)
+    #expect(appState.isPaused == false)
+
+    // Pause the timer
+    appState.togglePaused()
+
+    // Advance the clock; time should not change
+    await clock.advance(by: .seconds(5))
+    #expect(appState.remainingTime == 6)
+    #expect(appState.isPaused == true)
   }
 
   @Test("Should cancel the current schedule when it is destroyed.")

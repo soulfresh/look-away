@@ -1,4 +1,5 @@
 import SwiftUI
+import Carbon
 
 /// A custom `NSWindow` subclass used to block user interactions with other applications.
 class BlockingWindow: NSWindow {
@@ -54,7 +55,7 @@ class BlockingWindow: NSWindow {
 
   override func keyDown(with event: NSEvent) {
     // If the Escape key was pressed, hide the preview windows.
-    if event.keyCode == 53 {
+    if event.keyCode == kVK_Escape {
       print("--- Escape key pressed ---")
       appState?.performance.time("close-windows")
       appState?.startWorking()

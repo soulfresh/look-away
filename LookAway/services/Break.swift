@@ -13,9 +13,23 @@ class Break: ObservableObject {
     case breaking(remaining: TimeInterval)
     case finished
   }
+  
+  /// The timer used to track progress through the break phases.
+  var timerTask: Task<Void, Never>? {
+    didSet {
+      // Keep the isRunning published state up-to-date.
+      isRunning = timerTask != nil
+    }
+  }
+//  private var timerTask: Task<Void, Never>?
 
   /// The current phase of the break cycle, published for observers.
   @Published private(set) var phase: Phase = .idle
+  /// Whether or not the timer is currently running.
+  @Published private(set) var isRunning: Bool = false
+//  var isRunning: Bool {
+//    timerTask != nil
+//  }
   
   /// How often the break repeats in seconds.
   let frequency: TimeInterval
@@ -23,8 +37,9 @@ class Break: ObservableObject {
   /// How long the break lasts in seconds.
   let duration: TimeInterval
 
+  /// Provides an interface for measuring code execution timing.
   private let performance: PerformanceTimer
-  private var timerTask: Task<Void, Never>?
+    
   private let clock: any Clock<Duration>
 
   /// - Parameter frequency: The frequency of the break in seconds.
@@ -47,10 +62,6 @@ class Break: ObservableObject {
     print("Deinitializing Break instance")
     // Ensure all tasks are cancelled.
     cancel()
-  }
-  
-  var isRunning: Bool {
-    timerTask != nil
   }
 
   /// Starts the working phase of the break flow.
@@ -124,7 +135,8 @@ class Break: ObservableObject {
   func resume() {
     print("Resuming break timer task")
     // If we are already running, do nothing.
-    guard timerTask == nil else { return }
+    guard !isRunning else { return }
+//    guard timerTask == nil else { return }
 
     switch phase {
     case .working(let remaining):
@@ -163,7 +175,7 @@ class Break: ObservableObject {
 
       // Update the published phase with the remaining time.
       self.phase = update(remaining)
-//      print("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
+      print("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
 
       // TODO Task has a sleep method. Do we still need Clock? Would we be able
       // to mock Task.sleep in tests?
