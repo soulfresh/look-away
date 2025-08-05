@@ -38,28 +38,28 @@ class Break: ObservableObject {
   let duration: TimeInterval
 
   /// Provides an interface for measuring code execution timing.
-  private let performance: PerformanceTimer
+  private let logger: Logger
     
   private let clock: any Clock<Duration>
 
   /// - Parameter frequency: The frequency of the break in seconds.
   /// - Parameter duration: The duration of the break in seconds.
-  /// - Parameter performance: A `PerformanceTimer` instance for measuring performance.
+  /// - Parameter logger
   /// - Parameter clock: The clock to use for time-based operations, defaults to `ContinuousClock`. This is useful for controlling the timing of the break in tests or different environments.
   init(
     frequency: TimeInterval,
     duration: TimeInterval,
-    performance: PerformanceTimer,
-    clock: any Clock<Duration> = ContinuousClock()
+    logger: Logger,
+    clock: any Clock<Duration> = ContinuousClock(),
   ) {
     self.frequency = frequency
     self.duration = duration
-    self.performance = performance
+    self.logger = logger
     self.clock = clock
   }
 
   deinit {
-    print("Deinitializing Break instance")
+    logger.log("Deinitializing Break instance")
     // Ensure all tasks are cancelled.
     cancel()
   }
@@ -67,29 +67,29 @@ class Break: ObservableObject {
   /// Starts the working phase of the break flow.
   /// - Parameter workingDuration: Optional duration for the working phase.
   func startWorking(_ workingDuration: TimeInterval? = nil) {
-    print("Starting working phase with duration: \(workingDuration ?? frequency)")
+    logger.log("Starting working phase with duration: \(workingDuration ?? frequency)")
 
     runTask(
       operation: {
-        print("Running working phase")
+        self.logger.log("Running working phase")
         // Start with the working phase.
         try await self.runPhase(
           duration: workingDuration ?? self.frequency,
           phase: Phase.working
         )
-        print("Starting break")
+        self.logger.log("Starting break")
         // Then move to the breaking phase.
         try await self.runPhase(
           duration: self.duration,
           phase: Phase.breaking
         )
-        print("Break complete")
+        self.logger.log("Break complete")
         // Finally, set the phase to finished.
         self.phase = Phase.finished
         self.cancel()
       },
       errorHandler: { error in
-        print("Error in working phase: \(error)")
+        self.logger.log("Error in working phase: \(error)")
         self.phase = Phase.idle
         self.cancel()
       }
@@ -100,23 +100,23 @@ class Break: ObservableObject {
   ///
   /// - Parameter breakingDuration: Optional duration for the breaking phase.
   func startBreak(_ breakingDuration: TimeInterval? = nil) {
-    print("Starting break phase with duration: \(breakingDuration ?? duration)")
+    logger.log("Starting break phase with duration: \(breakingDuration ?? duration)")
 
     runTask(
       operation: {
-        print("Running break phase")
+        self.logger.log("Running break phase")
         // Transition directly to the breaking phase.
         try await self.runPhase(
           duration: breakingDuration ?? self.duration,
           phase: Phase.breaking
         )
-        print("Break complete")
+        self.logger.log("Break complete")
         // After breaking, set the phase to finished.
         self.phase = Phase.finished
         self.cancel()
       },
       errorHandler: { error in
-        print("Error in working phase: \(error)")
+        self.logger.log("Error in working phase: \(error)")
         self.phase = Phase.idle
         self.cancel()
       }
@@ -125,7 +125,7 @@ class Break: ObservableObject {
 
   /// Pause the break wherever we are in the cycle.
   func pause() {
-    print("Pausing break timer task")
+    logger.log("Pausing break timer task")
     // Cancelling the current task will retain the current time remaining value
     // in the current phase so we can easily resume later.
     cancel()
@@ -133,7 +133,7 @@ class Break: ObservableObject {
 
   /// Resume the break from where it left off.
   func resume() {
-    print("Resuming break timer task")
+    logger.log("Resuming break timer task")
     // If we are already running, do nothing.
     guard !isRunning else { return }
 //    guard timerTask == nil else { return }
@@ -152,14 +152,14 @@ class Break: ObservableObject {
 
   /// Reset the break to its initial state. This will cancel the timer and reset all state.
   func reset() {
-    print("Resetting this Break")
+    logger.log("Resetting this Break")
     cancel()
     phase = .idle
   }
 
   /// Cancels the timer task for this break without changing the phase which would cause a binding update in `AppState`.
   func cancel() {
-    print("Cancelling break timer task")
+    logger.log("Cancelling break timer task")
     timerTask?.cancel()
     timerTask = nil
   }
@@ -175,7 +175,7 @@ class Break: ObservableObject {
 
       // Update the published phase with the remaining time.
       self.phase = update(remaining)
-      print("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
+      logger.log("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
 
       // TODO Task has a sleep method. Do we still need Clock? Would we be able
       // to mock Task.sleep in tests?

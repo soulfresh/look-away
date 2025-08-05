@@ -159,6 +159,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
       window.close()
     }
     blockerWindows.removeAll()
-    appState.performance.timeEnd("close-windows")
+    appState.logger.timeEnd("close-windows")
   }
 }

@@ -15,7 +15,7 @@ class AppState: ObservableObject {
   @Published private(set) var remainingTime: TimeInterval = 0
   
   /// A timer that can be used for performance measurements.
-  public let performance = PerformanceTimer()
+  public let logger: Logger
 
   // For now, the schedule contains a single, hardcoded break.
   private var schedule: Break
@@ -25,13 +25,16 @@ class AppState: ObservableObject {
 
   /**
    * - Parameter clock: The clock to use for time-based operations.
+   * - Parameter debug
    */
-  init(clock: any Clock<Duration> = ContinuousClock()) {
+  init(clock: any Clock<Duration> = ContinuousClock(), debug: Bool = false) {
+    self.logger = Logger(enabled: debug)
+    
     // TODO: Make this schedule user-configurable.
     self.schedule = Break(
       frequency: 10,
       duration: 5,
-      performance: performance,
+      logger: logger,
       clock: clock
     )
 
@@ -89,14 +92,14 @@ class AppState: ObservableObject {
   /// Rewind to the working phase of the current break in our schedule.
   /// - Parameter duration The amount of time to work for before restarting the current break phase.
   func delay(_ duration: TimeInterval) {
-    performance.time("close-windows")
+    logger.time("close-windows")
     // TODO This will advance to the next break in our schedule but we really want to rewind to the working phase of the current break in our schedule.
     startWorking(duration)
   }
   
   /// Skip the current break and immediately start the working phase of the next break.
   func skip() {
-    performance.time("close-windows")
+    logger.time("close-windows")
     startWorking()
   }
 

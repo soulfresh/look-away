@@ -39,7 +39,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				services/Break.swift,
-				services/PerformanceTimer.swift,
+				services/Logger.swift,
 			);
 			target = 638B05BC2DEA3D450052CFD2 /* LookAwayTests */;
 		};
