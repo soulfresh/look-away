@@ -13,6 +13,6 @@
 		"/opt/homebrew/bin/xcode-build-server"
 	],
 	"workspace": "/Users/marcwren/Development/atom-dance/look-away/LookAway.xcodeproj/project.xcworkspace",
-	"build_root": "/Users/marcwren/Library/Developer/Xcode/DerivedData/LookAway-diamvwvxaylqxbdjszvitzwowrug",
+	"build_root": "/Users/marcwren/Development/atom-dance/look-away/DerivedData/LookAway",
 	"kind": "xcode"
 }

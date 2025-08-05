@@ -5,7 +5,7 @@ import Foundation
 ///
 /// This class is a self-contained state machine that manages its own timer
 /// and publishes its current phase.
-class Break: ObservableObject {
+class WorkCycle: ObservableObject {
   /// The different phases a break can be in.
   enum Phase {
     case idle
@@ -13,7 +13,7 @@ class Break: ObservableObject {
     case breaking(remaining: TimeInterval)
     case finished
   }
-  
+
   /// The timer used to track progress through the break phases.
   var timerTask: Task<Void, Never>? {
     didSet {
@@ -21,16 +21,16 @@ class Break: ObservableObject {
       isRunning = timerTask != nil
     }
   }
-//  private var timerTask: Task<Void, Never>?
+  //  private var timerTask: Task<Void, Never>?
 
   /// The current phase of the break cycle, published for observers.
   @Published private(set) var phase: Phase = .idle
   /// Whether or not the timer is currently running.
   @Published private(set) var isRunning: Bool = false
-//  var isRunning: Bool {
-//    timerTask != nil
-//  }
-  
+  //  var isRunning: Bool {
+  //    timerTask != nil
+  //  }
+
   /// How often the break repeats in seconds.
   let frequency: TimeInterval
 
@@ -39,7 +39,7 @@ class Break: ObservableObject {
 
   /// Provides an interface for measuring code execution timing.
   private let logger: Logger
-    
+
   private let clock: any Clock<Duration>
 
   /// - Parameter frequency: The frequency of the break in seconds.
@@ -136,7 +136,7 @@ class Break: ObservableObject {
     logger.log("Resuming break timer task")
     // If we are already running, do nothing.
     guard !isRunning else { return }
-//    guard timerTask == nil else { return }
+    //    guard timerTask == nil else { return }
 
     switch phase {
     case .working(let remaining):

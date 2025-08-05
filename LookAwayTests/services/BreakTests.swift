@@ -5,7 +5,7 @@ import Testing
 
 @testable import LookAway
 
-final class BreakSpy: Break {
+final class WorkCycleSpy: WorkCycle {
   var cancelCallCount = 0
 
   override func cancel() {
@@ -16,17 +16,17 @@ final class BreakSpy: Break {
 
 class BreakTestContext {
   let clock: BreakClock = BreakClock()
-  let brk: BreakSpy
-  
+  let brk: WorkCycleSpy
+
   init(debug: Bool = false) {
-    brk = BreakSpy(
+    brk = WorkCycleSpy(
       frequency: 100,
       duration: 50,
       logger: Logger(enabled: debug),
       clock: clock.clock
     )
   }
-  
+
   func afterEach() async {
     brk.cancel()
     await clock.run()
@@ -38,7 +38,7 @@ struct BreakTests {
   func testInitialState() async {
     let test = BreakTestContext()
     let breakInstance = test.brk
-    
+
     #expect(breakInstance.phase == .idle)
     #expect(breakInstance.isRunning == false)
     #expect(breakInstance.frequency == 100)
@@ -56,7 +56,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     #expect(breakInstance.cancelCallCount == 0)
 
     breakInstance.startWorking()
@@ -85,7 +85,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     #expect(breakInstance.cancelCallCount == 0)
 
     breakInstance.startWorking()
@@ -118,7 +118,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     #expect(breakInstance.cancelCallCount == 0)
 
     breakInstance.startBreak()
@@ -147,7 +147,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     breakInstance.startWorking()
 
     await clock.advanceBy(1)
@@ -171,7 +171,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     breakInstance.startWorking()
 
     #expect(breakInstance.cancelCallCount == 1)
@@ -208,7 +208,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     breakInstance.startWorking()
 
     await clock.tick()
@@ -232,7 +232,7 @@ struct BreakTests {
     let test = BreakTestContext()
     let clock = test.clock
     let breakInstance = test.brk
-    
+
     breakInstance.startWorking()
 
     await clock.tick()

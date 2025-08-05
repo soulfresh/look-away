@@ -1,8 +1,8 @@
 import Foundation
 
 /// Allows comparing the `Break.Phase` enum for equality.
-extension Break.Phase: Equatable {
-  public static func == (lhs: Break.Phase, rhs: Break.Phase) -> Bool {
+extension WorkCycle.Phase: Equatable {
+  public static func == (lhs: WorkCycle.Phase, rhs: WorkCycle.Phase) -> Bool {
     switch (lhs, rhs) {
     case (.idle, .idle):
       return true
