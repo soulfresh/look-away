@@ -68,11 +68,11 @@ class BlockingWindow: NSWindow {
     let delay = { (duration: TimeInterval?) in
       self.appState?.logger.time("close-windows")
       // TODO This will advance to the next break in our schedule but we really want to rewind to the working phase of the current break in our schedule.
-      self.appState?.startWorking(duration)
+      self.appState?.startNextWorkCycle(duration)
     }
     let skip = { () in
       self.appState?.logger.time("close-windows")
-      self.appState?.startWorking()
+      self.appState?.startNextWorkCycle()
     }
 
     switch (key, flags) {

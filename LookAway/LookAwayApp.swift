@@ -54,7 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
   /**
    * The AppState object that holds the state of the application.
    */
-  var appState = AppState()
+  let appState: AppState
 
   /// The list of windows that block user interaction with the system when in the blocking state.
   var blockerWindows: [NSWindow] = []
@@ -65,6 +65,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
   /// The default presentation options given to the application when it starts. These are used to restore the application to its original state when the blocking windows are closed since the blocking state will change the presentation options to disable system features like app switching and Mission Control.
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
+
+  override init() {
+    let logger = Logger(enabled: true)
+    logger.log("LookAwayApp initialized")
+
+    self.appState = AppState(
+      schedule: [
+        WorkCycle(
+          frequency: 10,
+          duration: 5,
+          logger: LogWrapper(logger: logger, label: "WorkCycle 1"),
+        ),
+        WorkCycle(
+          frequency: 5,
+          duration: 3,
+          logger: LogWrapper(logger: logger, label: "WorkCycle 2"),
+        ),
+      ],
+      logger: LogWrapper(logger: logger, label: "AppState"),
+    )
+  }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     // Store the default presentation options so we can restore them later.
@@ -105,9 +126,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     appState.cancelTimer()
 
     // Remove the global event monitor.
-//    if let eventMonitor = eventMonitor {
-//      NSEvent.removeMonitor(eventMonitor)
-//    }
+    //    if let eventMonitor = eventMonitor {
+    //      NSEvent.removeMonitor(eventMonitor)
+    //    }
   }
 
   /**

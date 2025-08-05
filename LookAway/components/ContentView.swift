@@ -16,7 +16,7 @@ struct ContentView: View {
           .imageScale(.large)
           .foregroundStyle(.tint)
         Text("Look away from the COMPUTER!")
-        
+
         Button("Skip (Esc)") {
           appState.skip()
         }
@@ -39,5 +39,15 @@ struct ContentView: View {
 }
 
 #Preview {
-  ContentView().environmentObject(AppState())
+  ContentView().environmentObject(
+    AppState(
+      schedule: [
+        WorkCycle(
+          frequency: 10,
+          duration: 5,
+          logger: Logger()
+        )
+      ],
+      logger: Logger()
+    ))
 }

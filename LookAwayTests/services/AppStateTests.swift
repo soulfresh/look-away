@@ -1,15 +1,28 @@
 import Clocks
 import Foundation
 import Testing
+
 @testable import LookAway
 
 @MainActor
 class AppStateTestContext {
   let clock: BreakClock = BreakClock()
   let appState: AppState
-  
+
   init(debug: Bool = false) {
-    appState = AppState(clock: clock.clock, debug: debug)
+    let logger = Logger(enabled: debug)
+
+    appState = AppState(
+      schedule: [
+        WorkCycle(
+          frequency: 10,
+          duration: 5,
+          logger: LogWrapper(logger: logger, label: "Test WorkCycle 0"),
+          clock: clock.clock
+        )
+      ],
+      logger: LogWrapper(logger: logger, label: "Test AppState"),
+    )
   }
 
   func afterEach() async {
@@ -37,10 +50,10 @@ struct AppStateTests {
     await clock.advanceBy(1)
 
     #expect(appState.remainingTime == 9)
-    
+
     await context.afterEach()
   }
-  
+
   @Test("Should cycle through the working and breaking states.")
   func testFullCycle() async {
     let context = AppStateTestContext()
@@ -71,7 +84,7 @@ struct AppStateTests {
     #expect(appState.isBlocking == false)
     #expect(appState.remainingTime == 10)
     #expect(appState.isPaused == false)
-    
+
     await context.afterEach()
   }
 
@@ -93,7 +106,7 @@ struct AppStateTests {
     #expect(appState.isBlocking == false)
     #expect(appState.remainingTime == 10)
     #expect(appState.isPaused == false)
-    
+
     await context.afterEach()
   }
 
@@ -115,7 +128,7 @@ struct AppStateTests {
     #expect(appState.isBlocking == true)
     #expect(appState.remainingTime == 5)
     #expect(appState.isPaused == false)
-    
+
     await context.afterEach()
   }
 
@@ -146,7 +159,7 @@ struct AppStateTests {
     await clock.advanceBy(1)
     #expect(appState.remainingTime == 6)
     #expect(appState.isPaused == false)
-    
+
     await context.afterEach()
   }
 
@@ -185,7 +198,7 @@ struct AppStateTests {
     await clock.advanceBy(5)
     #expect(appState.remainingTime == 6)
     #expect(appState.isPaused == true)
-    
+
     await context.afterEach()
   }
 
@@ -208,7 +221,7 @@ struct AppStateTests {
     // We can advance the clock to see if any crashes occur.
     await clock.advanceBy(20)
     #expect(appState == nil)
-    
+
     await context.afterEach()
   }
 }

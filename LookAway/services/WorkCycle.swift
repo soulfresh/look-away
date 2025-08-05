@@ -7,11 +7,26 @@ import Foundation
 /// and publishes its current phase.
 class WorkCycle: ObservableObject {
   /// The different phases a break can be in.
-  enum Phase {
+  enum Phase: Equatable {
     case idle
     case working(remaining: TimeInterval)
     case breaking(remaining: TimeInterval)
     case finished
+
+    public static func == (lhs: WorkCycle.Phase, rhs: WorkCycle.Phase) -> Bool {
+      switch (lhs, rhs) {
+      case (.idle, .idle):
+        return true
+      case (.working(let lhsRemaining), .working(let rhsRemaining)):
+        return lhsRemaining == rhsRemaining
+      case (.breaking(let lhsRemaining), .breaking(let rhsRemaining)):
+        return lhsRemaining == rhsRemaining
+      case (.finished, .finished):
+        return true
+      default:
+        return false
+      }
+    }
   }
 
   /// The timer used to track progress through the break phases.
@@ -38,7 +53,7 @@ class WorkCycle: ObservableObject {
   let duration: TimeInterval
 
   /// Provides an interface for measuring code execution timing.
-  private let logger: Logger
+  private let logger: Logging
 
   private let clock: any Clock<Duration>
 
@@ -49,7 +64,7 @@ class WorkCycle: ObservableObject {
   init(
     frequency: TimeInterval,
     duration: TimeInterval,
-    logger: Logger,
+    logger: Logging,
     clock: any Clock<Duration> = ContinuousClock(),
   ) {
     self.frequency = frequency
@@ -170,9 +185,11 @@ class WorkCycle: ObservableObject {
   {
     var remaining = duration
     while remaining >= 0 {
+      logger.log("Checking for task cancellation")
       // Throw an error if the task is cancelled.
       try Task.checkCancellation()
 
+      logger.log("About to update phase remaining")
       // Update the published phase with the remaining time.
       self.phase = update(remaining)
       logger.log("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
@@ -180,6 +197,7 @@ class WorkCycle: ObservableObject {
       // TODO Task has a sleep method. Do we still need Clock? Would we be able
       // to mock Task.sleep in tests?
       try await clock.sleep(for: .seconds(1))
+      logger.log("Waking up from nap and incrementing time remaining")
       remaining -= 1
     }
   }

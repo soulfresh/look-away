@@ -6,7 +6,7 @@ DESTINATION = 'platform=macOS'
 CONFIGURATION = Debug
 
 # Use .PHONY to declare targets that are not files.
-.PHONY: configure build run test test-unit clean help
+.PHONY: configure build run test test.unit clean help
 
 configure: ## Makes the XCode configuration available to sourcekit-lsp.
 	xcode-build-server config \
@@ -20,7 +20,7 @@ build: ## Builds the application in Debug mode.
 		-configuration $(CONFIGURATION)
 
 run: ## Runs the application in Debug mode.
-	@open "DerivedData/$(SCHEME)/Build/Products/$(CONFIGURATION)/$(SCHEME).app"
+	DerivedData/$(SCHEME)/Build/Products/$(CONFIGURATION)/$(SCHEME).app/Contents/MacOS/$(SCHEME)
 
 TEST_ARGS =
 
@@ -31,7 +31,7 @@ test: ## Runs all test suites in the scheme. You can override TEST_ARGS to run s
 		-destination $(DESTINATION) \
 		$(TEST_ARGS)
 
-test-unit: ## Runs only the LookAwayTests target
+test.unit: ## Runs only the LookAwayTests target
 	$(MAKE) test TEST_ARGS="-only-testing LookAwayTests"
 
 clean: ## Cleans the build folder

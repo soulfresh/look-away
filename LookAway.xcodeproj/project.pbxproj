@@ -34,23 +34,9 @@
 		638B05C72DEA3D450052CFD2 /* LookAwayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LookAwayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		63A47DC22E3BAF09007DC501 /* Exceptions for "LookAway" folder in "LookAwayTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				services/Break.swift,
-				services/Logger.swift,
-			);
-			target = 638B05BC2DEA3D450052CFD2 /* LookAwayTests */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		638B05B12DEA3D440052CFD2 /* LookAway */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				63A47DC22E3BAF09007DC501 /* Exceptions for "LookAway" folder in "LookAwayTests" target */,
-			);
 			path = LookAway;
 			sourceTree = "<group>";
 		};

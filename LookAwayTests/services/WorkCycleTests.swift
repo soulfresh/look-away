@@ -14,7 +14,7 @@ final class WorkCycleSpy: WorkCycle {
   }
 }
 
-class BreakTestContext {
+class WorkCycleTestContext {
   let clock: BreakClock = BreakClock()
   let brk: WorkCycleSpy
 
@@ -33,10 +33,10 @@ class BreakTestContext {
   }
 }
 
-struct BreakTests {
+struct WorkCycleTests {
   @Test("Starts in the idle state.")
   func testInitialState() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let breakInstance = test.brk
 
     #expect(breakInstance.phase == .idle)
@@ -53,7 +53,7 @@ struct BreakTests {
 
   @Test("Should be able to start working.")
   func testStartWorking() async throws {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 
@@ -82,7 +82,7 @@ struct BreakTests {
 
   @Test("Should be able to restart the working phase with a given duration while it is running.")
   func testRestartWorking() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 
@@ -115,7 +115,7 @@ struct BreakTests {
 
   @Test("Should be able to start a break.")
   func testStartBreak() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 
@@ -144,7 +144,7 @@ struct BreakTests {
 
   @Test("Should be able to transition from working to breaking to finished.")
   func testFullFlow() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 
@@ -168,7 +168,7 @@ struct BreakTests {
 
   @Test("Should be able to pause and resume.")
   func testPauseAndResume() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 
@@ -205,7 +205,7 @@ struct BreakTests {
 
   @Test("Should be able to reset the break to the beginning.")
   func testReset() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 
@@ -229,7 +229,7 @@ struct BreakTests {
 
   @Test("Should be able to cancel the timer task without affecting the phase.")
   func testCancelTimerTask() async {
-    let test = BreakTestContext()
+    let test = WorkCycleTestContext()
     let clock = test.clock
     let breakInstance = test.brk
 

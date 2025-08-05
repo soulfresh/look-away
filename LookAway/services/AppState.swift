@@ -19,58 +19,66 @@ class AppState: ObservableObject {
   @Published private(set) var remainingTime: TimeInterval = 0
 
   /// A timer that can be used for performance measurements.
-  public let logger: Logger
+  public let logger: Logging
 
   /// The schedule of work cycles that the application will follow.
-  private var schedule: WorkCycle
+  // private var schedule: WorkCycle
+  private var schedule: [WorkCycle]
+
+  /// DON'T USE: Private backing store for `cycleIndex`.
+  private var _cycleIndex: Int = -1
+  /// The index of the current work cycle in the schedule.
+  private var cycleIndex: Int {
+    get { _cycleIndex }
+    set {
+      if !schedule.indices.contains(newValue) {
+        logger.error(
+          """
+          Attempting to set cycleIndex to \(newValue) but
+          it is out of bounds for the schedule with \(schedule.count) cycles.
+          """
+        )
+      }
+      // Ensure the cycle index is always within bounds.
+      _cycleIndex = max(0, min(newValue, schedule.count - 1))
+    }
+  }
+
+  /// The current work cycle that the application is following.
+  private var cycle: WorkCycle { schedule[cycleIndex] }
 
   /// Cancellables that will be cleaned up when AppState is destroyed.
   private var cancellables = Set<AnyCancellable>()
 
   /**
-   * - Parameter clock: The clock to use for time-based operations.
-   * - Parameter debug
+   * - Parameter schedule: The schedule of work cycles to follow.
+   * - Parameter logger: A logger to use for debugging and performance measurements.
    */
-  init(clock: any Clock<Duration> = ContinuousClock(), debug: Bool = false) {
-    self.logger = Logger(enabled: debug)
+  init(
+    schedule _schedule: [WorkCycle],
+    logger: Logging,
+  ) {
+    self.logger = logger
+    self.schedule = _schedule
 
-    // TODO: Make this schedule user-configurable.
-    self.schedule = WorkCycle(
-      frequency: 10,
-      duration: 5,
-      logger: logger,
-      clock: clock
-    )
-
-    // Watch for changes in the work cycle and update the "blocking" state.
-    schedule.$phase
-      .receive(on: DispatchQueue.main)
-      .sink { [weak self] phase in
-        self?.onWorkCyclePhaseChange(phase)
-      }
-      .store(in: &cancellables)
-
-    // Watch for changes in the work cycle's `isRunning` state and publish that as `isPaused`.
-    schedule.$isRunning
-      // Map to the inverse of `isRunning`
-      .map { !$0 }
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$isPaused)
-
-    // Start the first work cycle.
+    logger.log("Initialized with \(_schedule.count) work cycles.")
+    // Start the first work cycle a bit later.
     Task {
-      self.schedule.startWorking()
+      self.logger.log("Kicking off the first work cycle.")
+      // TODO We have to set _cycleIndex to -1 to get this to advance to index
+      // 0. Is there a cleaner way to do that. Feels brittle
+      self.startNextWorkCycle()
     }
   }
 
   /// Pause the current work cycle.
   func pause() {
-    schedule.pause()
+    cycle.pause()
   }
 
   /// Resume the current work cycle.
   func resume() {
-    schedule.resume()
+    cycle.resume()
   }
 
   /// Toggle whether the schedule is currently paused.
@@ -84,13 +92,44 @@ class AppState: ObservableObject {
 
   /// Start the break portion of the current work cycle.
   func startBreak(_ breakDuration: TimeInterval? = nil) {
-    schedule.startBreak(breakDuration)
+    cycle.startBreak(breakDuration)
   }
 
   /// Start the next work cycle. This will enter into the working portion of
   /// that cycle.
-  func startWorking(_ workingDuration: TimeInterval? = nil) {
-    schedule.startWorking(workingDuration)
+  func startNextWorkCycle(_ workingDuration: TimeInterval? = nil) {
+    logger.time("close-windows")
+    logger.log("Shutting down the current work cycle.")
+
+    // Stop listening to the old work cycle.
+    cancellables.forEach { $0.cancel() }
+    cancellables.removeAll()
+
+    // Reset all work cycles to idle.
+    schedule.forEach { $0.reset() }
+
+    // Change to the next cycle in the schedule.
+    cycleIndex = schedule.nextIndex(after: cycleIndex)!
+    logger.log("Changed to work cycle at index \(cycleIndex)")
+
+    // Watch for changes in the new work cycle and update the "blocking" state.
+    cycle.$phase
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] phase in
+        self?.onWorkCyclePhaseChange(phase)
+      }
+      .store(in: &cancellables)
+
+    // Watch for changes in the work cycle's `isRunning` state and publish that as `isPaused`.
+    cycle.$isRunning
+      // Map to the inverse of `isRunning`
+      .map { !$0 }
+      .receive(on: DispatchQueue.main)
+      .assign(to: &$isPaused)
+
+    logger.log("Starting work cycle \(cycleIndex)")
+    // Start working in the new cycle.
+    cycle.startWorking(workingDuration)
   }
 
   /// Rewind to the working phase of the current work cycle in our schedule.
@@ -99,15 +138,16 @@ class AppState: ObservableObject {
   ///     current break phase.
   func delay(_ duration: TimeInterval) {
     logger.time("close-windows")
-    startWorking(duration)
+    // Keep the current work cycle but rewind to the working phase.
+    cycle.startWorking(duration)
   }
 
   /// Skip the current break and immediately start the working phase of the next
   /// work cycle.
   func skip() {
     logger.time("close-windows")
-    // TODO Advance to the next work cycle.
-    startWorking()
+    // Advance to the next work cycle.
+    startNextWorkCycle()
   }
 
   /// Updates the AppState based on the current phase of the active work cycle.
@@ -125,15 +165,16 @@ class AppState: ObservableObject {
     case .finished:
       isBlocking = false
       remainingTime = 0
-      // Here you would typically start the next work cycle in the schedule.
-      // For now, we'll just restart the current one for continuous looping.
+      // Start the next work cycle in the schedule.
       Task {
-        self.schedule.startWorking()
+        self.startNextWorkCycle()
       }
     }
   }
 
+  /// Stop the current work cycle immediately. This is used to stop timers
+  /// without any side effects during shutdown.
   func cancelTimer() {
-    schedule.cancel()
+    cycle.cancel()
   }
 }
