@@ -18,6 +18,19 @@ class AppState: ObservableObject {
   /// cycle.
   @Published private(set) var remainingTime: TimeInterval = 0
 
+  /// The number of times the user has skipped a break
+  @Published private(set) var skipped: Int = 0
+  /// The number of times the current work cycle has been delayed. This gets
+  /// reset when the work cycle advances.
+  @Published private(set) var delayed: Int = 0
+  /// The total number of work cycles STARTED
+  @Published private(set) var count: Int = 0
+
+  /// The number of fully completed breaks (ie. they were not ended prematurely).
+  var completed: Int {
+    count - 1 - skipped
+  }
+
   /// A timer that can be used for performance measurements.
   public let logger: Logging
 
@@ -25,27 +38,10 @@ class AppState: ObservableObject {
   // private var schedule: WorkCycle
   private var schedule: [WorkCycle]
 
-  /// DON'T USE: Private backing store for `cycleIndex`.
-  private var _cycleIndex: Int = -1
-  /// The index of the current work cycle in the schedule.
-  private var cycleIndex: Int {
-    get { _cycleIndex }
-    set {
-      if !schedule.indices.contains(newValue) {
-        logger.error(
-          """
-          Attempting to set cycleIndex to \(newValue) but
-          it is out of bounds for the schedule with \(schedule.count) cycles.
-          """
-        )
-      }
-      // Ensure the cycle index is always within bounds.
-      _cycleIndex = max(0, min(newValue, schedule.count - 1))
-    }
-  }
-
   /// The current work cycle that the application is following.
-  private var cycle: WorkCycle { schedule[cycleIndex] }
+  private var cycle: WorkCycle? {
+    schedule.wrapping(at: count - 1)
+  }
 
   /// Cancellables that will be cleaned up when AppState is destroyed.
   private var cancellables = Set<AnyCancellable>()
@@ -73,12 +69,12 @@ class AppState: ObservableObject {
 
   /// Pause the current work cycle.
   func pause() {
-    cycle.pause()
+    cycle?.pause()
   }
 
   /// Resume the current work cycle.
   func resume() {
-    cycle.resume()
+    cycle?.resume()
   }
 
   /// Toggle whether the schedule is currently paused.
@@ -92,12 +88,40 @@ class AppState: ObservableObject {
 
   /// Start the break portion of the current work cycle.
   func startBreak(_ breakDuration: TimeInterval? = nil) {
-    cycle.startBreak(breakDuration)
+    cycle?.startBreak(breakDuration)
+  }
+
+  /// Rewind to the working phase of the current work cycle in our schedule.
+  ///
+  /// - Parameter duration The amount of time to work for before restarting the
+  ///     current break phase.
+  func delay(_ duration: TimeInterval) {
+    guard let cycle = cycle else { return }
+
+    logger.time("close-windows")
+    delayed += 1
+    // Keep the current work cycle but rewind to the working phase.
+    cycle.startWorking(duration)
+  }
+
+  /// Skip the current break and immediately start the working phase of the next
+  /// work cycle.
+  func skip() {
+    logger.time("close-windows")
+    skipped += 1
+    // Advance to the next work cycle.
+    startNextWorkCycle()
   }
 
   /// Start the next work cycle. This will enter into the working portion of
   /// that cycle.
-  func startNextWorkCycle(_ workingDuration: TimeInterval? = nil) {
+  private func startNextWorkCycle(_ workingDuration: TimeInterval? = nil) {
+    guard schedule.count > 0 else {
+      // TODO Warning
+      logger.error("No work cycles in the schedule. Cannot start next work cycle.")
+      return
+    }
+    
     logger.time("close-windows")
     logger.log("Shutting down the current work cycle.")
 
@@ -108,12 +132,20 @@ class AppState: ObservableObject {
     // Reset all work cycles to idle.
     schedule.forEach { $0.reset() }
 
-    // Change to the next cycle in the schedule.
-    cycleIndex = schedule.nextIndex(after: cycleIndex)!
-    logger.log("Changed to work cycle at index \(cycleIndex)")
+    // Reset the delayed counter
+    delayed = 0
+
+    // Advance to the next work cycle in the schedule.
+    count += 1
+
+    // This should never happen given the guard at the beginning of this function.
+    guard let c = cycle else {
+      logger.error("Unable to get the current work cycle at index \(count) of \(schedule.count).")
+      return
+    }
 
     // Watch for changes in the new work cycle and update the "blocking" state.
-    cycle.$phase
+    c.$phase
       .receive(on: DispatchQueue.main)
       .sink { [weak self] phase in
         self?.onWorkCyclePhaseChange(phase)
@@ -121,33 +153,15 @@ class AppState: ObservableObject {
       .store(in: &cancellables)
 
     // Watch for changes in the work cycle's `isRunning` state and publish that as `isPaused`.
-    cycle.$isRunning
+    c.$isRunning
       // Map to the inverse of `isRunning`
       .map { !$0 }
       .receive(on: DispatchQueue.main)
       .assign(to: &$isPaused)
 
-    logger.log("Starting work cycle \(cycleIndex)")
+    logger.log("Starting work cycle \(count) [index: \((count - 1) % schedule.count)] \(c)")
     // Start working in the new cycle.
-    cycle.startWorking(workingDuration)
-  }
-
-  /// Rewind to the working phase of the current work cycle in our schedule.
-  ///
-  /// - Parameter duration The amount of time to work for before restarting the
-  ///     current break phase.
-  func delay(_ duration: TimeInterval) {
-    logger.time("close-windows")
-    // Keep the current work cycle but rewind to the working phase.
-    cycle.startWorking(duration)
-  }
-
-  /// Skip the current break and immediately start the working phase of the next
-  /// work cycle.
-  func skip() {
-    logger.time("close-windows")
-    // Advance to the next work cycle.
-    startNextWorkCycle()
+    c.startWorking(workingDuration)
   }
 
   /// Updates the AppState based on the current phase of the active work cycle.
@@ -165,6 +179,8 @@ class AppState: ObservableObject {
     case .finished:
       isBlocking = false
       remainingTime = 0
+      // Track the number of breaks that were fully completed.
+      // completed += 1
       // Start the next work cycle in the schedule.
       Task {
         self.startNextWorkCycle()
@@ -175,6 +191,6 @@ class AppState: ObservableObject {
   /// Stop the current work cycle immediately. This is used to stop timers
   /// without any side effects during shutdown.
   func cancelTimer() {
-    cycle.cancel()
+    cycle?.cancel()
   }
 }

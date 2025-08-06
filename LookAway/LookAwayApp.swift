@@ -67,7 +67,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
 
   override init() {
-    let logger = Logger(enabled: true)
+    let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    let logger = Logger(enabled: !isTesting)
     logger.log("LookAwayApp initialized")
 
     self.appState = AppState(

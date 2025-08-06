@@ -5,7 +5,7 @@ import Foundation
 ///
 /// This class is a self-contained state machine that manages its own timer
 /// and publishes its current phase.
-class WorkCycle: ObservableObject {
+class WorkCycle: ObservableObject, CustomStringConvertible {
   /// The different phases a break can be in.
   enum Phase: Equatable {
     case idle
@@ -56,6 +56,10 @@ class WorkCycle: ObservableObject {
   private let logger: Logging
 
   private let clock: any Clock<Duration>
+
+  var description: String {
+    return "WorkCycle(\(frequency) -> \(duration) [\(phase)])"
+  }
 
   /// - Parameter frequency: The frequency of the break in seconds.
   /// - Parameter duration: The duration of the break in seconds.
@@ -185,11 +189,9 @@ class WorkCycle: ObservableObject {
   {
     var remaining = duration
     while remaining >= 0 {
-      logger.log("Checking for task cancellation")
       // Throw an error if the task is cancelled.
       try Task.checkCancellation()
 
-      logger.log("About to update phase remaining")
       // Update the published phase with the remaining time.
       self.phase = update(remaining)
       logger.log("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
@@ -197,7 +199,6 @@ class WorkCycle: ObservableObject {
       // TODO Task has a sleep method. Do we still need Clock? Would we be able
       // to mock Task.sleep in tests?
       try await clock.sleep(for: .seconds(1))
-      logger.log("Waking up from nap and incrementing time remaining")
       remaining -= 1
     }
   }
@@ -219,5 +220,4 @@ class WorkCycle: ObservableObject {
       }
     }
   }
-
 }
