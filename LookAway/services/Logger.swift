@@ -2,6 +2,7 @@ import Foundation
 
 enum LogLevel: Int, Comparable {
   case error = 10
+  case warn = 7
   case info = 5
   case debug = 0
 
@@ -12,7 +13,9 @@ enum LogLevel: Int, Comparable {
 
 protocol Logging {
   func error(_ message: String)
+  func warn(_ message: String)
   func log(_ message: String)
+  func debug(_ message: String)
   func time(_ label: String)
   func timeEnd(_ label: String)
 }
@@ -34,21 +37,39 @@ class Logger: Logging {
     let now = Date()
     return dateFormatter.string(from: now)
   }
+  
+  private func prefix() -> String {
+    "[\(self.timeStamp())] ".grey()
+  }
 
   func error(_ message: String) {
     guard enabled, logLevel <= .error else { return }
     queue.async {
-      print("[\(self.timeStamp())] ERROR: \(message)")
+      print(self.prefix() + "ERROR: \(message)".red())
+    }
+  }
+
+  func warn(_ message: String) {
+    guard enabled, logLevel <= .warn else { return }
+    queue.async {
+      print(self.prefix() + "WARN: \(message)".yellow())
     }
   }
 
   func log(_ message: String) {
     guard enabled, logLevel <= .info else { return }
     queue.async {
-      print("[\(self.timeStamp())] \(message)")
+      print(self.prefix() + message)
     }
   }
 
+  func debug(_ message: String) {
+    guard enabled, logLevel <= .debug else { return }
+    queue.async {
+      print(self.prefix() + message.grey())
+    }
+  }
+  
   func time(_ label: String) {
     // Allow adding timers so that if logs get enabled before `timeEnd` we
     // can still print that duration.
@@ -85,7 +106,7 @@ class LogWrapper: Logging {
 
   init(logger: Logger, label: String) {
     self.logger = logger
-    self.label = label
+    self.label = label.blue()
   }
 
   func time(_ id: String) {
@@ -98,6 +119,14 @@ class LogWrapper: Logging {
 
   func log(_ message: String) {
     logger.log("\(label): \(message)")
+  }
+
+  func debug(_ message: String) {
+    logger.debug("\(label): \(message)")
+  }
+
+  func warn(_ message: String) {
+    logger.warn("\(label): \(message)")
   }
 
   func error(_ message: String) {

@@ -26,6 +26,11 @@ class AppState: ObservableObject {
   /// The total number of work cycles STARTED
   @Published private(set) var count: Int = 0
 
+  /// Gets the current index of the work cycle in the schedule.
+  var index: Int {
+    (count - 1) % schedule.count
+  }
+
   /// The number of fully completed breaks (ie. they were not ended prematurely).
   var completed: Int {
     count - 1 - skipped
@@ -35,12 +40,11 @@ class AppState: ObservableObject {
   public let logger: Logging
 
   /// The schedule of work cycles that the application will follow.
-  // private var schedule: WorkCycle
   private var schedule: [WorkCycle]
 
   /// The current work cycle that the application is following.
   private var cycle: WorkCycle? {
-    schedule.wrapping(at: count - 1)
+    schedule.getElement(at: index)
   }
 
   /// Cancellables that will be cleaned up when AppState is destroyed.
@@ -121,7 +125,7 @@ class AppState: ObservableObject {
       logger.error("No work cycles in the schedule. Cannot start next work cycle.")
       return
     }
-    
+
     logger.time("close-windows")
     logger.log("Shutting down the current work cycle.")
 
@@ -159,7 +163,7 @@ class AppState: ObservableObject {
       .receive(on: DispatchQueue.main)
       .assign(to: &$isPaused)
 
-    logger.log("Starting work cycle \(count) [index: \((count - 1) % schedule.count)] \(c)")
+    logger.log("Starting work cycle \(count) [index: \(index)] \(c)")
     // Start working in the new cycle.
     c.startWorking(workingDuration)
   }

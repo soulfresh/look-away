@@ -10,7 +10,7 @@ extension Array {
   ///
   /// - Parameter index: The index of the element to access.
   /// - Returns: The element at the wrapped index, or `nil` if the array is empty.
-  func wrapping(at index: Int) -> Element? {
+  func getElement(at index: Int) -> Element? {
     guard !isEmpty else {
       return nil
     }

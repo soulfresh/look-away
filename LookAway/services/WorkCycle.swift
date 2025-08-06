@@ -194,7 +194,7 @@ class WorkCycle: ObservableObject, CustomStringConvertible {
 
       // Update the published phase with the remaining time.
       self.phase = update(remaining)
-      logger.log("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
+      logger.debug("Phase updated to: \(self.phase) with remaining time: \(remaining) seconds")
 
       // TODO Task has a sleep method. Do we still need Clock? Would we be able
       // to mock Task.sleep in tests?
