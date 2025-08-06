@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// This view is responsible for rendering the user interface that appears on the
 /// full-screen preview windows.
-struct ContentView: View {
+struct LookAwayContent: View {
   @EnvironmentObject var appState: AppState
 
   var body: some View {
@@ -39,7 +39,7 @@ struct ContentView: View {
 }
 
 #Preview {
-  ContentView().environmentObject(
+  LookAwayContent().environmentObject(
     AppState(
       schedule: [
         WorkCycle(

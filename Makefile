@@ -20,7 +20,7 @@ build: ## Builds the application in Debug mode.
 		-configuration $(CONFIGURATION)
 
 run: ## Runs the application in Debug mode.
-	DerivedData/$(SCHEME)/Build/Products/$(CONFIGURATION)/$(SCHEME).app/Contents/MacOS/$(SCHEME)
+	WITH_COLOR=1 DerivedData/$(SCHEME)/Build/Products/$(CONFIGURATION)/$(SCHEME).app/Contents/MacOS/$(SCHEME)
 
 TEST_ARGS =
 

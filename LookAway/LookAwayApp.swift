@@ -41,9 +41,13 @@ struct AppMenu: View {
       appState.startBreak()
     }
     Divider()
+    Button("Settings") {
+      appState.showSettings = true
+    }
+    Divider()
     Button("Quit LookAway") {
       NSApplication.shared.terminate(nil)
-    }.keyboardShortcut("q")
+    }
   }
 }
 
@@ -56,6 +60,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
    */
   let appState: AppState
 
+  let logger: Logging
+  var settingsWindow: NSWindow?
   /// The list of windows that block user interaction with the system when in the blocking state.
   var blockerWindows: [NSWindow] = []
   /// The cancellables used to manage Combine subscriptions. When this gets deallocated, all subscriptions are cancelled.
@@ -68,23 +74,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
   override init() {
     let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     let logger = Logger(enabled: !isTesting)
-    logger.log("LookAwayApp initialized")
+    self.logger = LogWrapper(logger: logger, label: "LookAwayApp".red())
+    self.logger.log("initialized")
 
     self.appState = AppState(
       schedule: [
         WorkCycle(
           frequency: 10,
           duration: 5,
-          logger: LogWrapper(logger: logger, label: "WorkCycle 1"),
+          logger: LogWrapper(logger: logger, label: "WorkCycle 1".blue()),
         ),
         WorkCycle(
           frequency: 5,
           duration: 3,
-          logger: LogWrapper(logger: logger, label: "WorkCycle 2"),
+          logger: LogWrapper(logger: logger, label: "WorkCycle 2".green()),
         ),
       ],
-      logger: LogWrapper(logger: logger, label: "AppState"),
+      logger: LogWrapper(logger: logger, label: "AppState".magenta())
     )
   }
 
@@ -92,7 +100,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     // Store the default presentation options so we can restore them later.
     self.defaultPresentationOptions = NSApplication.shared.presentationOptions
 
-    // Subscribe to changes in AppState.isShowingPreview and react accordingly.
+    // Toggle the blocking windows on AppState.isBlocking changes.
     appState.$isBlocking
       .removeDuplicates()
       .sink { [weak self] isShowing in
@@ -100,6 +108,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
           self?.openScreenBlockers()
         } else {
           self?.closeScreenBlockers()
+        }
+      }
+      .store(in: &cancellables)
+
+    // Toggle the settings window on AppState.showSettings changes.
+    appState.$showSettings
+      .removeDuplicates()
+      .sink { [weak self] isShowing in
+        if isShowing {
+          self?.openSettingsWindow()
+        } else {
+          self?.settingsWindow?.close()
         }
       }
       .store(in: &cancellables)
@@ -132,6 +152,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     //    }
   }
 
+  func openSettingsWindow() {
+    logger.log("Opening settings window")
+    if settingsWindow == nil {
+      settingsWindow = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+        styleMask: [.closable, .titled, .resizable],
+        backing: .buffered,
+        defer: false
+      )
+
+      guard let win = settingsWindow else {
+        logger.error("Failed to create settings window")
+        return
+      }
+
+      win.contentView = NSHostingView(rootView: LookAwaySettings())
+      win.title = "LookAway Settings"
+      win.center()
+      win.makeKeyAndOrderFront(nil)
+      NSApp.activate(ignoringOtherApps: true)
+    }
+  }
+
   /**
    * Shows the window blockers that cover the user's screen.
    */
@@ -150,14 +193,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     if blockerWindows.isEmpty {
       for screen in NSScreen.screens {
         // The ContentView will get the AppState from the environment.
-        let contentView = ContentView()
+        let contentView = LookAwayContent()
           .environmentObject(appState)
 
         let window = BlockingWindow(
           screen: screen,
           contentView: NSHostingView(rootView: contentView),
           appState: self.appState,
-          //          debug: true
+          // Prevent the blocking windows from actually blocking the
+          // screen so you don't end up locked out of your computer.
+          // debug: true
         )
         blockerWindows.append(window)
       }
@@ -181,6 +226,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
       window.close()
     }
     blockerWindows.removeAll()
-    appState.logger.timeEnd("close-windows")
+    logger.timeEnd("close-windows")
   }
 }

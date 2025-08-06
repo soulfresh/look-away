@@ -6,6 +6,8 @@ import Foundation
 /// time for the current break.
 @MainActor
 class AppState: ObservableObject {
+  /// Whether or not to show the settings window.
+  @Published var showSettings: Bool = false
   /**
    * When `true`, the application will display the blocking windows that
    * prevent interactions with the rest of the system.
