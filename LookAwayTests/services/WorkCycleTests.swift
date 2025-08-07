@@ -41,8 +41,8 @@ struct WorkCycleTests {
 
     #expect(breakInstance.phase == .idle)
     #expect(breakInstance.isRunning == false)
-    #expect(breakInstance.frequency == 100)
-    #expect(breakInstance.duration == 50)
+    #expect(breakInstance.frequency == TimeSpan(value: 100))
+    #expect(breakInstance.duration == TimeSpan(value: 50))
     #expect(breakInstance.cancelCallCount == 0)
 
     await test.afterEach()

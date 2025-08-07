@@ -101,10 +101,10 @@ class Logger: Logging {
 /// grouping/identifiying logs from different parts of the application or
 /// different tasks.
 class LogWrapper: Logging {
-  private let logger: Logger
+  private let logger: Logging
   private let label: String
 
-  init(logger: Logger, label: String) {
+  init(logger: Logging, label: String) {
     self.logger = logger
     self.label = label.blue()
   }

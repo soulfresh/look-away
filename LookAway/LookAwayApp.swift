@@ -2,6 +2,15 @@ import Carbon
 import Combine
 import SwiftUI
 
+struct Environment {
+  static var isPreview: Bool {
+    ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+  }
+  static var isTesting: Bool {
+    ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+  }
+}
+
 @main
 struct LookAwayApp: App {
   /// Manages the application lifecycle and provides the main window management.
@@ -60,7 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
    */
   let appState: AppState
 
-  let logger: Logging
+  let logger: Logger
   var settingsWindow: NSWindow?
   /// The list of windows that block user interaction with the system when in the blocking state.
   var blockerWindows: [NSWindow] = []
@@ -73,27 +82,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
 
   override init() {
-    let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    logger = Logger(enabled: !Environment.isTesting)
+    logger.log("initialized")
 
-    let logger = Logger(enabled: !isTesting)
-    self.logger = LogWrapper(logger: logger, label: "LookAwayApp".red())
-    self.logger.log("initialized")
-
-    self.appState = AppState(
-      schedule: [
-        WorkCycle(
-          frequency: 10,
-          duration: 5,
-          logger: LogWrapper(logger: logger, label: "WorkCycle 1".blue()),
-        ),
-        WorkCycle(
-          frequency: 5,
-          duration: 3,
-          logger: LogWrapper(logger: logger, label: "WorkCycle 2".green()),
-        ),
-      ],
-      logger: LogWrapper(logger: logger, label: "AppState".magenta())
-    )
+    if Environment.isPreview {
+      self.appState = AppState(schedule: [], logger: logger)
+    } else {
+      self.appState = AppState(
+        schedule: [
+          WorkCycle(
+            frequency: TimeSpan(value: 10, unit: .second),
+            duration: TimeSpan(value: 5, unit: .second),
+            logger: LogWrapper(logger: logger, label: "WorkCycle 1".blue()),
+          ),
+          WorkCycle(
+            frequency: TimeSpan(value: 5, unit: .second),
+            duration: TimeSpan(value: 3, unit: .second),
+            logger: LogWrapper(logger: logger, label: "WorkCycle 2".green()),
+          ),
+        ],
+        logger: LogWrapper(logger: logger, label: "AppState".magenta())
+      )
+    }
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -154,9 +164,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
   func openSettingsWindow() {
     logger.log("Opening settings window")
+
     if settingsWindow == nil {
       settingsWindow = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+        contentRect: NSRect(x: 0, y: 0, width: 600, height: 300),
         styleMask: [.closable, .titled, .resizable],
         backing: .buffered,
         defer: false
@@ -167,7 +178,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         return
       }
 
-      win.contentView = NSHostingView(rootView: LookAwaySettings())
+      win.contentView = NSHostingView(rootView: LookAwaySettings(appState, logger))
       win.title = "LookAway Settings"
       win.center()
       win.makeKeyAndOrderFront(nil)

@@ -65,12 +65,29 @@ class AppState: ObservableObject {
 
     logger.log("Initialized with \(_schedule.count) work cycles.")
     // Start the first work cycle a bit later.
+    // TODO I don't think we actually need to wrap this in a Task.
     Task {
       self.logger.log("Kicking off the first work cycle.")
       // TODO We have to set _cycleIndex to -1 to get this to advance to index
       // 0. Is there a cleaner way to do that. Feels brittle
       self.startNextWorkCycle()
     }
+  }
+
+  func setSchedule(_ schedule: [WorkCycle]) {
+    // This will also reset the `isPaused` state when `startNextWorkCycle` is
+    // called because none of the new WorkCycles have been paused yet.
+    self.schedule = schedule
+
+    // Reset trackers:
+    count = 0  // must be reset in order to start at the beginning of the schedule
+    skipped = 0  // must be reset because count was reset
+    delayed = 0  // will be reset in startNextWorkCycle anyway
+    remainingTime = 0  // will be reset once the first cycle phase changes
+    isBlocking = false  // will be reset once the first cycle phase changes
+
+    // Start the first work cycle.
+    startNextWorkCycle()
   }
 
   /// Pause the current work cycle.

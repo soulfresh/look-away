@@ -5,7 +5,7 @@ import Foundation
 ///
 /// This class is a self-contained state machine that manages its own timer
 /// and publishes its current phase.
-class WorkCycle: ObservableObject, CustomStringConvertible {
+class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   /// The different phases a break can be in.
   enum Phase: Equatable {
     case idle
@@ -36,21 +36,17 @@ class WorkCycle: ObservableObject, CustomStringConvertible {
       isRunning = timerTask != nil
     }
   }
-  //  private var timerTask: Task<Void, Never>?
 
   /// The current phase of the break cycle, published for observers.
   @Published private(set) var phase: Phase = .idle
   /// Whether or not the timer is currently running.
   @Published private(set) var isRunning: Bool = false
-  //  var isRunning: Bool {
-  //    timerTask != nil
-  //  }
 
   /// How often the break repeats in seconds.
-  let frequency: TimeInterval
+  let frequency: TimeSpan
 
   /// How long the break lasts in seconds.
-  let duration: TimeInterval
+  let duration: TimeSpan
 
   /// Provides an interface for measuring code execution timing.
   private let logger: Logging
@@ -66,8 +62,8 @@ class WorkCycle: ObservableObject, CustomStringConvertible {
   /// - Parameter logger
   /// - Parameter clock: The clock to use for time-based operations, defaults to `ContinuousClock`. This is useful for controlling the timing of the break in tests or different environments.
   init(
-    frequency: TimeInterval,
-    duration: TimeInterval,
+    frequency: TimeSpan,
+    duration: TimeSpan,
     logger: Logging,
     clock: any Clock<Duration> = ContinuousClock(),
   ) {
@@ -75,6 +71,20 @@ class WorkCycle: ObservableObject, CustomStringConvertible {
     self.duration = duration
     self.logger = logger
     self.clock = clock
+  }
+  
+  convenience init(
+    frequency: TimeInterval,
+    duration: TimeInterval,
+    logger: Logging,
+    clock: any Clock<Duration> = ContinuousClock()
+  ) {
+    self.init(
+      frequency: TimeSpan(value: frequency, unit: .second),
+      duration: TimeSpan(value: duration, unit: .second),
+      logger: logger,
+      clock: clock
+    )
   }
 
   deinit {
@@ -86,20 +96,20 @@ class WorkCycle: ObservableObject, CustomStringConvertible {
   /// Starts the working phase of the break flow.
   /// - Parameter workingDuration: Optional duration for the working phase.
   func startWorking(_ workingDuration: TimeInterval? = nil) {
-    logger.log("Starting working phase with duration: \(workingDuration ?? frequency)")
+    logger.log("Starting working phase with duration: \(workingDuration ?? frequency.seconds)")
 
     runTask(
       operation: {
         self.logger.log("Running working phase")
         // Start with the working phase.
         try await self.runPhase(
-          duration: workingDuration ?? self.frequency,
+          duration: workingDuration ?? self.frequency.seconds,
           phase: Phase.working
         )
         self.logger.log("Starting break")
         // Then move to the breaking phase.
         try await self.runPhase(
-          duration: self.duration,
+          duration: self.duration.seconds,
           phase: Phase.breaking
         )
         self.logger.log("Break complete")
@@ -119,14 +129,14 @@ class WorkCycle: ObservableObject, CustomStringConvertible {
   ///
   /// - Parameter breakingDuration: Optional duration for the breaking phase.
   func startBreak(_ breakingDuration: TimeInterval? = nil) {
-    logger.log("Starting break phase with duration: \(breakingDuration ?? duration)")
+    logger.log("Starting break phase with duration: \(breakingDuration ?? duration.seconds)")
 
     runTask(
       operation: {
         self.logger.log("Running break phase")
         // Transition directly to the breaking phase.
         try await self.runPhase(
-          duration: breakingDuration ?? self.duration,
+          duration: breakingDuration ?? self.duration.seconds,
           phase: Phase.breaking
         )
         self.logger.log("Break complete")
