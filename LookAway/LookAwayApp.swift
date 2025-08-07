@@ -63,12 +63,12 @@ struct AppMenu: View {
 /// The AppDelegate class manages the application lifecycle and provides the main window management.
 /// The AppDelegate is required because SwiftUI does not provide an easy way to create system menu bar applications at this time.
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
+class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDelegate {
   /**
    * The AppState object that holds the state of the application.
    */
   let appState: AppState
-
+  let storage: Storage
   let logger: Logger
   var settingsWindow: NSWindow?
   /// The list of windows that block user interaction with the system when in the blocking state.
@@ -82,27 +82,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
 
   override init() {
-    logger = Logger(enabled: !Environment.isTesting)
-    logger.log("initialized")
+    let logger = Logger(enabled: !Environment.isTesting)
+    self.logger = logger
 
-    if Environment.isPreview {
-      self.appState = AppState(schedule: [], logger: logger)
-    } else {
-      self.appState = AppState(
-        schedule: [
-          WorkCycle(
-            frequency: TimeSpan(value: 10, unit: .second),
-            duration: TimeSpan(value: 5, unit: .second),
-            logger: LogWrapper(logger: logger, label: "WorkCycle 1".blue()),
-          ),
-          WorkCycle(
-            frequency: TimeSpan(value: 5, unit: .second),
-            duration: TimeSpan(value: 3, unit: .second),
-            logger: LogWrapper(logger: logger, label: "WorkCycle 2".green()),
-          ),
-        ],
-        logger: LogWrapper(logger: logger, label: "AppState".magenta())
-      )
+    storage = Storage(logger: LogWrapper(logger: logger, label: "Storage".cyan()))
+
+    let config = storage.loadSchedule()
+
+    self.appState = AppState(
+      schedule: config.enumerated().map { index, cycle in
+        WorkCycle(
+          frequency: cycle.frequency,
+          duration: cycle.duration,
+          logger: LogWrapper(logger: logger, label: "WorkCycle \(index + 1)".blue())
+        )
+      },
+      logger: LogWrapper(logger: logger, label: "AppState".magenta())
+    )
+
+    self.logger.log("initialized")
+
+    if !Environment.isPreview {
+      appState.start()
     }
   }
 
@@ -128,8 +129,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
       .sink { [weak self] isShowing in
         if isShowing {
           self?.openSettingsWindow()
-        } else {
-          self?.settingsWindow?.close()
+        // If we ever want to programmatically close the settings window,
+        // we can do that here.
+        // } else {
+        //  self?.settingsWindow?.close()
         }
       }
       .store(in: &cancellables)
@@ -164,25 +167,53 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
   func openSettingsWindow() {
     logger.log("Opening settings window")
+    guard settingsWindow == nil else {
+      logger.warn("Settings window already exists")
+      return
+    }
 
-    if settingsWindow == nil {
-      settingsWindow = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: 600, height: 300),
-        styleMask: [.closable, .titled, .resizable],
-        backing: .buffered,
-        defer: false
+    settingsWindow = NSWindow(
+      contentRect: NSRect(x: 0, y: 0, width: 600, height: 300),
+      styleMask: [.closable, .titled, .resizable],
+      backing: .buffered,
+      defer: false
+    )
+
+    guard let win = settingsWindow else {
+      logger.error("Failed to create settings window")
+      return
+    }
+
+    // Don't allow the system to auto-release the window when closed.
+    // Instead we will handle the close event to remove the reference to the window
+    // which should in turn release it when there are no more references to it.
+    win.isReleasedWhenClosed = false
+    win.delegate = self
+    win.contentView = NSHostingView(
+      rootView: LookAwaySettings(
+        state: appState,
+        storage: storage,
+        logger: logger
       )
+    )
+    win.title = "LookAway Settings"
+    win.center()
+    win.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+  }
 
-      guard let win = settingsWindow else {
-        logger.error("Failed to create settings window")
-        return
-      }
+  // This receives close events for all windows, including our blockers
+  func windowWillClose(_ notification: Notification) {
+    if (notification.object as? NSWindow) == settingsWindow {
+      logger.log("Closing settings window `\(settingsWindow?.title ?? "Unknown")`")
 
-      win.contentView = NSHostingView(rootView: LookAwaySettings(appState, logger))
-      win.title = "LookAway Settings"
-      win.center()
-      win.makeKeyAndOrderFront(nil)
-      NSApp.activate(ignoringOtherApps: true)
+      // Clear the reference to the settings window so it can be deallocated
+      // and we can re-create it again later.
+      settingsWindow = nil
+
+      // Keep the app state in sync. This MUST happen last so the `showSettings`
+      // binding doesn't try to call close the window again.
+      appState.showSettings = false
     }
   }
 

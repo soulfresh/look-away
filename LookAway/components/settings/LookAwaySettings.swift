@@ -4,28 +4,9 @@ import UniformTypeIdentifiers
 let PADDING: CGFloat = 8.0
 let WORK_CYCLE_CONFIG_KEY = "schedule"
 
-/// 4 quick eye breaks and 1 long break per hour
-let DEFAULT_SCHEDULE: [WorkCycleConfig] = [
-  WorkCycleConfig(
-    frequency: TimeSpan(value: 15, unit: .minute),
-    duration: TimeSpan(value: 10, unit: .second)
-  ),
-  WorkCycleConfig(
-    frequency: TimeSpan(value: 15, unit: .minute),
-    duration: TimeSpan(value: 10, unit: .second)
-  ),
-  WorkCycleConfig(
-    frequency: TimeSpan(value: 15, unit: .minute),
-    duration: TimeSpan(value: 10, unit: .second)
-  ),
-  WorkCycleConfig(
-    frequency: TimeSpan(value: 15, unit: .minute),
-    duration: TimeSpan(value: 5, unit: .minute)
-  ),
-]
-
 struct LookAwaySettings: View {
   var appState: AppState
+  var storage: Storage
   /// The logger used to create work cycle loggers
   var baseLogger: Logging
   /// The logger used to log events in this view.
@@ -38,8 +19,9 @@ struct LookAwaySettings: View {
   /// Whether or not the user is reordering the schedule.
   @State private var isSorting = false
 
-  init(_ state: AppState, _ logger: Logging) {
+  init(state: AppState, storage: Storage, logger: Logging) {
     appState = state
+    self.storage = storage
     
     let l = LogWrapper(
       logger: logger,
@@ -49,7 +31,7 @@ struct LookAwaySettings: View {
     self.logger = l
 
     // Load the last saved schedule from disk.
-    _schedule = State(initialValue: LookAwaySettings.loadSchedule(logger: l))
+    _schedule = State(initialValue: storage.loadSchedule())
 
     // When the settings window is opened, pause the app state to prevent
     // the app from blocking user interaction while the settings are being edited.
@@ -129,14 +111,14 @@ struct LookAwaySettings: View {
   }
 
   private func saveAppState() {
-    logger.log("Updating application schedule to \(schedule)")
+    logger.log("Updating application schedule")
     guard !schedule.isEmpty else {
       logger.error("Tried to save an empty schedule. Skipping save to disk.")
       return
     }
 
     // Save the current app state to disk.
-    saveSchedule(schedule)
+    storage.saveSchedule(schedule)
 
     logger.log("Starting new schedule...")
     // Update app state with the new schedule.
@@ -152,67 +134,15 @@ struct LookAwaySettings: View {
           )
         )
       })
-  }
-  
-  /// Get the last saved schedule or the default schedule.
-  /// This is a static function so it can be called before the view
-  /// is fully initialized.
-  static func loadSchedule(logger: Logging) -> [WorkCycleConfig] {
-    logger.log("Loading schedule from disk.")
-    // Load the last saved schedule from disk.
-    if let data = UserDefaults.standard.data(forKey: WORK_CYCLE_CONFIG_KEY) {
-      do {
-        return try JSONDecoder()
-          .decode([WorkCycleConfig].self, from: data)
-      } catch {
-        logger.error("Failed to decode schedule data: \(error)")
-      }
-    }
     
-    logger.log("No saved schedule found. Using default schedule.")
-    return DEFAULT_SCHEDULE
-  }
-  
-  /// Save the given schedule to disk.
-  private func saveSchedule(_ schedule: [WorkCycleConfig]) {
-    logger.log("Saving schedule to disk: \(schedule)")
-    // Save the current app state to disk.
-    if let data = try? JSONEncoder().encode(schedule) {
-      UserDefaults.standard.set(data, forKey: WORK_CYCLE_CONFIG_KEY)
-    } else {
-      logger.error("Failed to encode schedule data: \(schedule)")
-    }
+    // Start the new schedule.
+    appState.start()
   }
 }
 
-//struct PressActions: ViewModifier {
-//  @State var pressed = false
-//
-//  var onPress: () -> Void
-//  var onRelease: () -> Void
-//
-//  func body(content: Content) -> some View {
-//    content
-//      .simultaneousGesture(
-//        DragGesture(minimumDistance: 0)
-//          .onChanged({ _ in
-//            if !pressed {
-//              pressed = true
-//              onPress()
-//            }
-//          })
-//          .onEnded({ _ in
-//            if pressed {
-//              onRelease()
-//            }
-//          })
-//      )
-//  }
-//}
-
 #Preview {
   LookAwaySettings(
-    AppState(
+    state: AppState(
       schedule: [
         WorkCycle(
           frequency: TimeSpan(value: 10, unit: .minute),
@@ -222,6 +152,7 @@ struct LookAwaySettings: View {
       ],
       logger: Logger()
     ),
-    Logger()
+    storage: Storage(logger: Logger()),
+    logger: Logger()
   )
 }

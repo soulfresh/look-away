@@ -50,6 +50,16 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
+    
+    #expect(appState.isBlocking == false)
+    #expect(appState.remainingTime == 0)
+    #expect(appState.isPaused == false)
+    #expect(appState.skipped == 0)
+    #expect(appState.delayed == 0)
+    #expect(appState.count == 0)
+    #expect(appState.completed == 0)
+
+    appState.start()
 
     // Advance the clock to allow the initial tasks to run
     await clock.tick()
@@ -74,6 +84,7 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
+    appState.start()
 
     // Starts in working phase
     await clock.tick()
@@ -126,6 +137,7 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
+    appState.start()
 
     // Get to the breaking phase
     await clock.advanceBy(11)
@@ -156,6 +168,7 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
+    appState.start()
 
     // Start in the working phase
     await clock.tick()
@@ -182,6 +195,7 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
+    appState.start()
 
     // Start in the working phase and advance a bit
     await clock.advanceBy(3)
@@ -225,6 +239,7 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
+    appState.start()
 
     // Start in the working phase and advance a bit
     await clock.advanceBy(3)
@@ -264,7 +279,8 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
-    
+    appState.start()
+
     // Advance to the middle of the first break
     await clock.advanceBy(WORK_1 + (BREAK_1/2))
     
@@ -316,7 +332,8 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
-    
+    appState.start()
+
     // We add 1 second to ensure full transition to phase 2. Since the clock starts
     // immediately on initialization, we only need 1 extra second.
     await clock.advanceBy(WORK_1 + BREAK_1 + 1)
@@ -342,7 +359,8 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
-    
+    appState.start()
+
     await clock.advanceBy(WORK_1 + (BREAK_1/2))
     
     #expect(appState.isBlocking == true)
@@ -393,7 +411,8 @@ struct AppStateTests {
     let context = AppStateTestContext()
     let clock = context.clock
     let appState = context.appState
-    
+    appState.start()
+
     // Advance to the middle of the first break
     await clock.advanceBy(WORK_1 + (BREAK_1/2))
     
@@ -441,6 +460,8 @@ struct AppStateTests {
     let clock = context.clock
     var appState: AppState? = context.appState
 
+    appState!.start()
+    
     await clock.tick()
     #expect(appState?.remainingTime == WORK_1)
 

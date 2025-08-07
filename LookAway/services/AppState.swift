@@ -35,7 +35,7 @@ class AppState: ObservableObject {
 
   /// The number of fully completed breaks (ie. they were not ended prematurely).
   var completed: Int {
-    count - 1 - skipped
+    max(0, count - 1 - skipped)
   }
 
   /// A timer that can be used for performance measurements.
@@ -64,16 +64,10 @@ class AppState: ObservableObject {
     self.schedule = _schedule
 
     logger.log("Initialized with \(_schedule.count) work cycles.")
-    // Start the first work cycle a bit later.
-    // TODO I don't think we actually need to wrap this in a Task.
-    Task {
-      self.logger.log("Kicking off the first work cycle.")
-      // TODO We have to set _cycleIndex to -1 to get this to advance to index
-      // 0. Is there a cleaner way to do that. Feels brittle
-      self.startNextWorkCycle()
-    }
   }
 
+  /// Set a new schedule of work cycles. This will fully reset the state and
+  /// you will need to call `start()` to begin the first work cycle.
   func setSchedule(_ schedule: [WorkCycle]) {
     // This will also reset the `isPaused` state when `startNextWorkCycle` is
     // called because none of the new WorkCycles have been paused yet.
@@ -86,8 +80,29 @@ class AppState: ObservableObject {
     remainingTime = 0  // will be reset once the first cycle phase changes
     isBlocking = false  // will be reset once the first cycle phase changes
 
-    // Start the first work cycle.
-    startNextWorkCycle()
+    printSchedule()
+  }
+
+  /// Print the current schedule to the console.
+  func printSchedule() {
+    logger.log("Current schedule:")
+    for (index, cycle) in schedule.enumerated() {
+      logger.log("  \(index + 1): \(cycle)")
+    }
+  }
+
+  /// Start the work cycle. If the work cycle has already been started, this will
+  /// do nothing. This function is intended to be called when the app starts or when
+  /// the schedule is changed.
+  func start() {
+    if count == 0 {
+      // Start the first work cycle.
+      logger.log("Kicking off the first work cycle.")
+      startNextWorkCycle()
+    } else {
+      logger.warn(
+        "AppState already started with \(count) work cycles. Skipping this start request.")
+    }
   }
 
   /// Pause the current work cycle.
