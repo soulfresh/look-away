@@ -201,6 +201,7 @@ class AppState: ObservableObject {
       .assign(to: &$isPaused)
 
     logger.log("Starting work cycle \(count) [index: \(index)] \(c)")
+    logger.log("Skipped: \(skipped), Delayed: \(delayed), Completed: \(completed)")
     // Start working in the new cycle.
     c.startWorking(workingDuration)
   }

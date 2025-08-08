@@ -1,89 +1,5 @@
 import SwiftUI
 
-struct ActionButton<Label: View>: View {
-  private var color: Color = .accentColor
-  let action: () -> Void
-  let label: () -> Label
-
-  init(
-    color: Color = .accentColor,
-    action: @escaping () -> Void,
-    @ViewBuilder label: @escaping () -> Label
-  ) {
-    self.color = color
-    self.action = action
-    self.label = label
-  }
-
-  var body: some View {
-    Button(action: action) {
-      label()
-        .padding()
-    }
-    .buttonStyle(.plain)
-    .foregroundColor(.white)
-    .background(Color.black.opacity(0.1))
-    .cornerRadius(8)
-    .overlay(
-      RoundedRectangle(cornerRadius: 8)
-        .stroke(color.opacity(0.5), lineWidth: 1)
-    )
-  }
-}
-
-extension ActionButton where Label == Text {
-  init(_ title: String, action: @escaping () -> Void) {
-    self.init(action: action) {
-      Text(title)
-    }
-  }
-
-  init(title: String, color: Color, action: @escaping () -> Void) {
-    self.init(color: color, action: action) {
-      Text(title)
-    }
-  }
-}
-
-struct KeyHintButton: View {
-  let title: String
-  let key: String
-  let color: Color
-  let action: () -> Void
-
-  init(
-    title: String,
-    key: String,
-    color: Color = .accentColor,
-    action: @escaping () -> Void
-  ) {
-    self.title = title
-    self.key = key
-    self.color = color
-    self.action = action
-  }
-
-  var body: some View {
-    ActionButton(color: color, action: action) {
-      HStack {
-        Text(title)
-        HStack(spacing: 0) {
-
-          Text("[")
-            .font(.system(size: 11))
-            .foregroundStyle(Color.white.opacity(0.2))
-          Text(key)
-            .font(.system(size: 11))
-            .foregroundStyle(Color.white.opacity(0.6))
-          Text("]")
-            .font(.system(size: 11))
-            .foregroundStyle(Color.white.opacity(0.2))
-        }
-      }
-    }
-  }
-}
-
 /// The root view for the UI that is displayed when the app is blocking user interaction.
 ///
 /// This view is responsible for rendering the user interface that appears on the
@@ -93,6 +9,20 @@ struct LookAwayContent: View {
 
   var body: some View {
     VStack {
+
+      HStack {
+        AppIcon(percent: 1 - (appState.remainingTime / appState.phaseLength))
+        Spacer()
+        HStack {
+          ScoreText(title: "Completed", score: appState.completed)
+            .padding(.trailing, 20)
+          ScoreText(title: "Delayed", score: appState.delayed, positive: false)
+            .padding(.trailing, 20)
+          ScoreText(title: "Skipped", score: appState.skipped, positive: false)
+        }
+        Spacer()
+      }
+      .padding([.leading, .vertical])
 
       HStack {
         VStack {
@@ -116,8 +46,6 @@ struct LookAwayContent: View {
                 .frame(width: char == ":" ? 20 : 50, alignment: .center)
             }
           }
-
-          AppIcon(percent: 1 - (appState.remainingTime / appState.phaseLength))
 
           Spacer()
 

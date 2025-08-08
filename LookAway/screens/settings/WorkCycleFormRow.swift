@@ -21,7 +21,7 @@ struct WorkCycleFormRow: View {
         workCycle: $cycle,
         editable: editable,
       )
-      .padding(.vertical, PADDING)
+      .padding(.vertical, 8)
 
       Spacer()
 
@@ -30,7 +30,7 @@ struct WorkCycleFormRow: View {
           systemName: "line.horizontal.3",
         )
         .foregroundColor(.secondary)
-        .padding(PADDING)
+        .padding(8)
       } else {
         Button(action: {
           onAdd(cycle.id)

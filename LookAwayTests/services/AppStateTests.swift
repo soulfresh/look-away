@@ -327,6 +327,7 @@ struct AppStateTests {
     await context.afterEach()
   }
 
+  // TODO Flaky test
   @Test("Should be able to count the number of successfully completed breaks.")
   func testCompletedCount() async {
     let context = AppStateTestContext()

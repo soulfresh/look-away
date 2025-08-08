@@ -1,5 +1,6 @@
 import Carbon
 import Combine
+import KeyboardShortcuts
 import SwiftUI
 
 struct Environment {
@@ -45,9 +46,12 @@ struct AppMenu: View {
     Button(appState.isPaused ? "Resume" : "Pause") {
       appState.togglePaused()
     }
+    // TODO Get the shortcut from KeyboardShortcuts somehow
+    .keyboardShortcut("p", modifiers: [.command, .option, .control])
     Button("Take a Break") {
       appState.startBreak()
     }
+    .keyboardShortcut("b", modifiers: [.command, .option, .control])
     Divider()
     Button("Settings") {
       appState.showSettings = true
@@ -76,8 +80,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   var blockerWindows: [NSWindow] = []
   /// The cancellables used to manage Combine subscriptions. When this gets deallocated, all subscriptions are cancelled.
   private var cancellables = Set<AnyCancellable>()
-  /// The event monitor used to listen for global key events.
-  //  private var eventMonitor: Any?
 
   /// The default presentation options given to the application when it starts. These are used to restore the application to its original state when the blocking windows are closed since the blocking state will change the presentation options to disable system features like app switching and Mission Control.
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
@@ -138,32 +140,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
       }
       .store(in: &cancellables)
 
-    /* Will require Accessibility permissions.
-       Don't forget to comment in the `applicationWillTerminate` code.
-    // Listen to system wide key events so users can manipulate the app even when it does not have focus.
-    eventMonitor =
-      NSEvent
-      .addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-        if event.modifierFlags.contains(.option) &&
-            event.modifierFlags.contains(.command) &&
-            event.modifierFlags.contains(.control) &&
-            event.modifierFlags.contains(.shift) &&
-            event.keyCode == kVK_Space {
-          print("--- Option + Command + X pressed ---")
-          self?.appState.togglePaused()
-        }
-      }
-     */
+    // Initialize the global hotkeys
+    KeyboardShortcuts.onKeyUp(for: .togglePause) { [weak self] in
+      self?.appState.togglePaused()
+    }
+    KeyboardShortcuts.onKeyUp(for: .takeBreak) { [weak self] in
+      self?.appState.startBreak()
+    }
   }
 
   func applicationWillTerminate(_ aNotification: Notification) {
     // Cancel the timer task when the application is about to terminate.
     appState.cancelTimer()
-
-    // Remove the global event monitor.
-    //    if let eventMonitor = eventMonitor {
-    //      NSEvent.removeMonitor(eventMonitor)
-    //    }
   }
 
   func openSettingsWindow() {
