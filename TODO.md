@@ -1,0 +1,18 @@
+- Push skipped/delayed/completed below notch
+- Indicate paused state in icon (color?, strikethrough?)
+- Allow jumping to a specific schedule
+- Display shortcut keys in menu from KeyboardShortcuts library
+- Customize tracking icon to look like eye
+- Update AppIcon
+- Make settings window look more like a native Settings tab bar
+- Don't reset schedule when closing settings if the settings didn't change
+- Pause when certain apps are opened
+- Reset skipped/delayed/completed tracking on the next day
+- Reset to start of cycle when the screen is turned off or user logs out
+- Unpause when logging back in the next day
+- Delay blocker if user is typing
+- Exercise instructions
+- Improve usablility of Schedule form
+  - accessibility
+  - tab focus
+  - combine textfield/picker component
