@@ -22,7 +22,7 @@ struct LookAwaySettings: View {
   init(state: AppState, storage: Storage, logger: Logging) {
     appState = state
     self.storage = storage
-    
+
     let l = LogWrapper(
       logger: logger,
       label: "LookAwaySettings"
@@ -45,7 +45,15 @@ struct LookAwaySettings: View {
     )
 
     List {
-      ForEach($schedule) { cycle in
+      ForEach(schedule.indices, id: \.self) { index in
+        let cycleBinding = Binding<WorkCycleConfig>(
+          get: { schedule[index] },
+          set: { updatedCycle in
+            schedule[index] = updatedCycle
+            // Force SwiftUI to recognize the change by re-assigning the array
+            schedule = schedule
+          }
+        )
         // TODO: I was hoping that wrapping the `List` with a `Form` would allow
         // users to tab between all rows as a single form. However,
         // doing that treats each row as a separate form and breaks the
@@ -60,7 +68,7 @@ struct LookAwaySettings: View {
         // - Each +/- button should be focusable and triggerable with the keyboard
         Form {
           WorkCycleFormRow(
-            cycle: cycle,
+            cycle: cycleBinding,
             onAdd: addWorkCycle,
             onRemove: removeWorkCycle,
             draggingEnabled: $isSorting,
@@ -70,13 +78,26 @@ struct LookAwaySettings: View {
       }
       .onMove(perform: isSorting ? moveWorkCycle : nil)
     }
+    .onChange(of: schedule) { _, _ in
+      logger.log("Schedule changed, saving to disk...")
+
+      for (index, cycle) in schedule.enumerated() {
+        logger.log("  \(index + 1): \(cycle)")
+      }
+    }
     .onDisappear {
       saveAppState()
     }
     .toolbar {
       ToolbarItem {
-        Button(isSorting ? "Done" : "Reorder") {
+        Button(action: {
           isSorting.toggle()
+        }) {
+          Image(
+            systemName: isSorting ? "checkmark" : "arrow.up.arrow.down",
+          )
+          .imageScale(.small)
+          Text(isSorting ? "Done" : "Reorder")
         }
       }
     }
@@ -96,8 +117,8 @@ struct LookAwaySettings: View {
     // TODO I don't think these are getting unique ids. That or searching for
     // the cycle by id isn't returning the correct one.
     let newCycle = WorkCycleConfig(
-      frequency: cycle.frequency,
-      duration: cycle.duration
+      workLength: cycle.workLength,
+      breakLength: cycle.breakLength
     )
     schedule.insert(newCycle, at: index + 1)
   }
@@ -125,8 +146,8 @@ struct LookAwaySettings: View {
     appState.setSchedule(
       schedule.enumerated().map { i, config in
         WorkCycle(
-          frequency: config.frequency,
-          duration: config.duration,
+          frequency: config.workLength,
+          duration: config.breakLength,
           logger: LogWrapper(
             // TODO Initialize the view with the app logger and use that to initialize the work cycle logger
             logger: baseLogger,
@@ -134,7 +155,7 @@ struct LookAwaySettings: View {
           )
         )
       })
-    
+
     // Start the new schedule.
     appState.start()
   }

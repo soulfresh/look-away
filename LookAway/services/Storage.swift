@@ -7,20 +7,20 @@ struct Storage {
   /// 4 quick eye breaks and 1 long break per hour
   private let DEFAULT_SCHEDULE: [WorkCycleConfig] = [
     WorkCycleConfig(
-      frequency: TimeSpan(value: 15, unit: .minute),
-      duration: TimeSpan(value: 10, unit: .second)
+      workLength: TimeSpan(value: 15, unit: .minute),
+      breakLength: TimeSpan(value: 10, unit: .second)
     ),
     WorkCycleConfig(
-      frequency: TimeSpan(value: 15, unit: .minute),
-      duration: TimeSpan(value: 10, unit: .second)
+      workLength: TimeSpan(value: 15, unit: .minute),
+      breakLength: TimeSpan(value: 10, unit: .second)
     ),
     WorkCycleConfig(
-      frequency: TimeSpan(value: 15, unit: .minute),
-      duration: TimeSpan(value: 10, unit: .second)
+      workLength: TimeSpan(value: 15, unit: .minute),
+      breakLength: TimeSpan(value: 10, unit: .second)
     ),
     WorkCycleConfig(
-      frequency: TimeSpan(value: 15, unit: .minute),
-      duration: TimeSpan(value: 5, unit: .minute)
+      workLength: TimeSpan(value: 15, unit: .minute),
+      breakLength: TimeSpan(value: 5, unit: .minute)
     ),
   ]
   

@@ -43,10 +43,10 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   @Published private(set) var isRunning: Bool = false
 
   /// How often the break repeats in seconds.
-  let frequency: TimeSpan
+  let workLength: TimeSpan
 
   /// How long the break lasts in seconds.
-  let duration: TimeSpan
+  let breakLength: TimeSpan
 
   /// Provides an interface for measuring code execution timing.
   private let logger: Logging
@@ -54,7 +54,7 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   private let clock: any Clock<Duration>
 
   var description: String {
-    return "WorkCycle(\(frequency) -> \(duration) [\(phase)])"
+    return "WorkCycle(\(workLength) -> \(breakLength) [\(phase)])"
   }
 
   /// - Parameter frequency: The frequency of the break in seconds.
@@ -67,8 +67,8 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
     logger: Logging,
     clock: any Clock<Duration> = ContinuousClock(),
   ) {
-    self.frequency = frequency
-    self.duration = duration
+    self.workLength = frequency
+    self.breakLength = duration
     self.logger = logger
     self.clock = clock
   }
@@ -96,20 +96,20 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   /// Starts the working phase of the break flow.
   /// - Parameter workingDuration: Optional duration for the working phase.
   func startWorking(_ workingDuration: TimeInterval? = nil) {
-    logger.log("Starting working phase with duration: \(workingDuration ?? frequency.seconds)")
+    logger.log("Starting working phase with duration: \(workingDuration ?? workLength.seconds)")
 
     runTask(
       operation: {
         self.logger.log("Running working phase")
         // Start with the working phase.
         try await self.runPhase(
-          duration: workingDuration ?? self.frequency.seconds,
+          duration: workingDuration ?? self.workLength.seconds,
           phase: Phase.working
         )
         self.logger.log("Starting break")
         // Then move to the breaking phase.
         try await self.runPhase(
-          duration: self.duration.seconds,
+          duration: self.breakLength.seconds,
           phase: Phase.breaking
         )
         self.logger.log("Break complete")
@@ -129,14 +129,14 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   ///
   /// - Parameter breakingDuration: Optional duration for the breaking phase.
   func startBreak(_ breakingDuration: TimeInterval? = nil) {
-    logger.log("Starting break phase with duration: \(breakingDuration ?? duration.seconds)")
+    logger.log("Starting break phase with duration: \(breakingDuration ?? breakLength.seconds)")
 
     runTask(
       operation: {
         self.logger.log("Running break phase")
         // Transition directly to the breaking phase.
         try await self.runPhase(
-          duration: breakingDuration ?? self.duration.seconds,
+          duration: breakingDuration ?? self.breakLength.seconds,
           phase: Phase.breaking
         )
         self.logger.log("Break complete")

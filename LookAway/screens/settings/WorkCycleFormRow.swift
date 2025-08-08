@@ -28,8 +28,6 @@ struct WorkCycleFormRow: View {
       if draggingEnabled {
         Image(
           systemName: "line.horizontal.3",
-          // systemName: "arrow.up.and.line.horizontal.and.arrow.down",
-          // systemName: "arrow.up.arrow.down",
         )
         .foregroundColor(.secondary)
         .padding(PADDING)
@@ -40,8 +38,7 @@ struct WorkCycleFormRow: View {
           Image(systemName: "plus.circle.fill")
         }
         .buttonStyle(.plain)
-        .keyboardShortcut(.defaultAction)
-        .focusable()
+        .foregroundStyle(Color.theme.success)
 
         Button(action: {
           onRemove(cycle.id)
@@ -49,8 +46,7 @@ struct WorkCycleFormRow: View {
           Image(systemName: "minus.circle.fill")
         }
         .buttonStyle(.plain)
-        .keyboardShortcut(.defaultAction)
-        .focusable()
+        .foregroundStyle(Color.theme.error)
         .disabled(!canBeRemoved)
       }
     }
@@ -72,8 +68,8 @@ struct WorkCycleFormRow: View {
       WorkCycleFormRow(
         cycle: .constant(
           WorkCycleConfig(
-            frequency: TimeSpan(value: 30, unit: .second),
-            duration: TimeSpan(value: 10, unit: .minute),
+            workLength: TimeSpan(value: 30, unit: .minute),
+            breakLength: TimeSpan(value: 10, unit: .second),
           )
         ),
         onAdd: { _ in },
@@ -86,8 +82,8 @@ struct WorkCycleFormRow: View {
       WorkCycleFormRow(
         cycle: .constant(
           WorkCycleConfig(
-            frequency: TimeSpan(value: 30, unit: .second),
-            duration: TimeSpan(value: 10, unit: .minute),
+            workLength: TimeSpan(value: 30, unit: .minute),
+            breakLength: TimeSpan(value: 10, unit: .second),
           )),
         onAdd: { _ in },
         onRemove: { _ in },
@@ -99,8 +95,8 @@ struct WorkCycleFormRow: View {
       WorkCycleFormRow(
         cycle: .constant(
           WorkCycleConfig(
-            frequency: TimeSpan(value: 30, unit: .second),
-            duration: TimeSpan(value: 10, unit: .minute),
+            workLength: TimeSpan(value: 30, unit: .second),
+            breakLength: TimeSpan(value: 10, unit: .minute),
           )),
         onAdd: { _ in },
         onRemove: { _ in },
@@ -112,8 +108,8 @@ struct WorkCycleFormRow: View {
       WorkCycleFormRow(
         cycle: .constant(
           WorkCycleConfig(
-            frequency: TimeSpan(value: 30, unit: .second),
-            duration: TimeSpan(value: 10, unit: .minute),
+            workLength: TimeSpan(value: 30, unit: .second),
+            breakLength: TimeSpan(value: 10, unit: .minute),
           )),
         onAdd: { _ in },
         onRemove: { _ in },

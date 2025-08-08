@@ -19,6 +19,8 @@ class AppState: ObservableObject {
   /// The remaining time displayed in the menu bar, driven by the active work
   /// cycle.
   @Published private(set) var remainingTime: TimeInterval = 0
+  /// The length of the currently active phase of the current work cycle.
+  @Published private(set) var phaseLength: TimeInterval = 0
 
   /// The number of times the user has skipped a break
   @Published private(set) var skipped: Int = 0
@@ -78,6 +80,7 @@ class AppState: ObservableObject {
     skipped = 0  // must be reset because count was reset
     delayed = 0  // will be reset in startNextWorkCycle anyway
     remainingTime = 0  // will be reset once the first cycle phase changes
+    phaseLength = 0  // will be reset once the first cycle phase changes
     isBlocking = false  // will be reset once the first cycle phase changes
 
     printSchedule()
@@ -208,15 +211,19 @@ class AppState: ObservableObject {
     case .idle:
       isBlocking = false
       remainingTime = 0
+      phaseLength = 0
     case .working(let remaining):
       isBlocking = false
       remainingTime = remaining
+      phaseLength = cycle!.workLength.seconds
     case .breaking(let remaining):
       isBlocking = true
       remainingTime = remaining
+      phaseLength = cycle!.breakLength.seconds
     case .finished:
       isBlocking = false
       remainingTime = 0
+      phaseLength = 0
       // Track the number of breaks that were fully completed.
       // completed += 1
       // Start the next work cycle in the schedule.

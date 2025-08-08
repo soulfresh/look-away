@@ -33,8 +33,7 @@ struct MenuBarButton: View {
   @ObservedObject var appState: AppState
 
   var body: some View {
-    Text(TimeFormatter.format(duration: appState.remainingTime))
-    Image(systemName: "eye")
+    AppIcon(percent: 1 - (appState.remainingTime / appState.phaseLength))
   }
 }
 
@@ -54,9 +53,11 @@ struct AppMenu: View {
       appState.showSettings = true
     }
     Divider()
-    Button("Quit LookAway") {
+    Button("Quit") {
       NSApplication.shared.terminate(nil)
     }
+    Divider()
+    Text("Next: \(TimeFormatter.format(duration: appState.remainingTime))")
   }
 }
 
@@ -92,8 +93,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     self.appState = AppState(
       schedule: config.enumerated().map { index, cycle in
         WorkCycle(
-          frequency: cycle.frequency,
-          duration: cycle.duration,
+          frequency: cycle.workLength,
+          duration: cycle.breakLength,
           logger: LogWrapper(logger: logger, label: "WorkCycle \(index + 1)".blue())
         )
       },
@@ -129,10 +130,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
       .sink { [weak self] isShowing in
         if isShowing {
           self?.openSettingsWindow()
-        // If we ever want to programmatically close the settings window,
-        // we can do that here.
-        // } else {
-        //  self?.settingsWindow?.close()
+          // If we ever want to programmatically close the settings window,
+          // we can do that here.
+          // } else {
+          //  self?.settingsWindow?.close()
         }
       }
       .store(in: &cancellables)

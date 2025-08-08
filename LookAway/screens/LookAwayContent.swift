@@ -68,16 +68,16 @@ struct KeyHintButton: View {
       HStack {
         Text(title)
         HStack(spacing: 0) {
-          
-        Text("[")
-          .font(.system(size: 11))
-          .foregroundStyle(Color.white.opacity(0.2))
-        Text(key)
-          .font(.system(size: 11))
-          .foregroundStyle(Color.white.opacity(0.6))
-        Text("]")
-          .font(.system(size: 11))
-          .foregroundStyle(Color.white.opacity(0.2))
+
+          Text("[")
+            .font(.system(size: 11))
+            .foregroundStyle(Color.white.opacity(0.2))
+          Text(key)
+            .font(.system(size: 11))
+            .foregroundStyle(Color.white.opacity(0.6))
+          Text("]")
+            .font(.system(size: 11))
+            .foregroundStyle(Color.white.opacity(0.2))
         }
       }
     }
@@ -116,6 +116,8 @@ struct LookAwayContent: View {
                 .frame(width: char == ":" ? 20 : 50, alignment: .center)
             }
           }
+
+          AppIcon(percent: 1 - (appState.remainingTime / appState.phaseLength))
 
           Spacer()
 

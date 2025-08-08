@@ -1,6 +1,6 @@
 import Foundation
 
-enum TimeUnit: String, CaseIterable, Identifiable, Codable {
+enum TimeUnit: String, CaseIterable, Identifiable, Codable, Equatable {
   case second
   case minute
   case hour
