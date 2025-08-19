@@ -1,3 +1,7 @@
+- Hide Look Away from screen share
+- Alt + Ctrl + Cmd + b should advance the next break if called in the middle of
+  a break allowing me to navigate to a larger break. 
+  - This should not impact my skipped or delayed count
 - Push skipped/delayed/completed below notch
 - Indicate paused state in icon (color?, strikethrough?)
 - Allow jumping to a specific schedule

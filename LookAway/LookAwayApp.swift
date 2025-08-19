@@ -78,6 +78,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   var settingsWindow: NSWindow?
   /// The list of windows that block user interaction with the system when in the blocking state.
   var blockerWindows: [NSWindow] = []
+  /// The application that was active before the blocker windows were shown.
+  private var previouslyActiveApp: NSRunningApplication?
   /// The cancellables used to manage Combine subscriptions. When this gets deallocated, all subscriptions are cancelled.
   private var cancellables = Set<AnyCancellable>()
 
@@ -210,6 +212,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
    * Shows the window blockers that cover the user's screen.
    */
   func openScreenBlockers() {
+    // Store the previously active application so we can restore it later.
+    previouslyActiveApp = NSWorkspace.shared.frontmostApplication
+
     // Set presentation options to disable system features like app switching and Mission Control.
     let restrictiveOptions: NSApplication.PresentationOptions = [
       .hideDock,
@@ -258,5 +263,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     }
     blockerWindows.removeAll()
     logger.timeEnd("close-windows")
+
+    // Restore focus to the previously active application.
+    if let app = previouslyActiveApp {
+      app.activate(options: .activateIgnoringOtherApps)
+      previouslyActiveApp = nil
+    }
   }
 }
