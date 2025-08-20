@@ -19,15 +19,15 @@ struct ActionButton<Label: View>: View {
     Button(action: action) {
       label()
         .padding()
+        .background(Color.black.opacity(0.1))
+        .cornerRadius(8)
+        .overlay(
+          RoundedRectangle(cornerRadius: 8)
+            .stroke(color.opacity(0.5), lineWidth: 1)
+        )
     }
-    .buttonStyle(.plain)
+    .buttonStyle(PlainButtonStyle())
     .foregroundColor(.white)
-    .background(Color.black.opacity(0.1))
-    .cornerRadius(8)
-    .overlay(
-      RoundedRectangle(cornerRadius: 8)
-        .stroke(color.opacity(0.5), lineWidth: 1)
-    )
   }
 }
 

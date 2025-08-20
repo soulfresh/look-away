@@ -35,9 +35,22 @@
 		638B05C72DEA3D450052CFD2 /* LookAwayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LookAwayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		633BA0182E54F39100700673 /* Exceptions for "LookAway" folder in "LookAway" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TODO.md,
+			);
+			target = 638B05AE2DEA3D440052CFD2 /* LookAway */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		638B05B12DEA3D440052CFD2 /* LookAway */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				633BA0182E54F39100700673 /* Exceptions for "LookAway" folder in "LookAway" target */,
+			);
 			path = LookAway;
 			sourceTree = "<group>";
 		};
