@@ -255,6 +255,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
    * Closes all window blockers, allowing the user access to their computer again.
    */
   func closeScreenBlockers() {
+    // Play a sound to indicate the break is over.
+    NSSound(named: "Submarine")?.play()
+
     // Restore the default presentation options.
     NSApplication.shared.presentationOptions = defaultPresentationOptions
 
