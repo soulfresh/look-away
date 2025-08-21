@@ -1,3 +1,4 @@
+import AVFoundation
 import Carbon
 import Combine
 import KeyboardShortcuts
@@ -89,6 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
 
   /// The default presentation options given to the application when it starts. These are used to restore the application to its original state when the blocking windows are closed since the blocking state will change the presentation options to disable system features like app switching and Mission Control.
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
+  var audioPlayer: AVAudioPlayer?
 
   override init() {
     let logger = Logger(enabled: !Environment.isTesting)
@@ -123,6 +125,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     // Toggle the blocking windows on AppState.schedule.isBlocking changes.
     appState.schedule.$isBlocking
       .removeDuplicates()
+      .dropFirst()
       .sink { [weak self] isShowing in
         if isShowing {
           self?.openScreenBlockers()
@@ -255,14 +258,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     }
     NSApp.activate(ignoringOtherApps: true)
   }
+  
+  func playSound(sound: String, type: String) {
+    if let url = Bundle.main.url(forResource: sound, withExtension: type) {
+      do {
+        audioPlayer = try AVAudioPlayer(contentsOf: url)
+        audioPlayer?.play()
+      } catch {
+        logger.error("Failed to play sound: \(error)")
+      }
+    } else {
+      logger.error("Bottle.aiff not found in bundle.")
+    }
+  }
 
   /**
    * Closes all window blockers, allowing the user access to their computer again.
    */
   func closeScreenBlockers() {
     // Play a sound to indicate the break is over.
-    NSSound(named: "Submarine")?.play()
-
+    playSound(sound: "Bottle", type: "aiff")
+    
     // Restore the default presentation options.
     NSApplication.shared.presentationOptions = defaultPresentationOptions
 
