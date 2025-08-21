@@ -264,6 +264,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
       do {
         audioPlayer = try AVAudioPlayer(contentsOf: url)
         audioPlayer?.play()
+        logger.log("Playing goodbye sound")
       } catch {
         logger.error("Failed to play sound: \(error)")
       }
@@ -286,12 +287,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
       window.close()
     }
     blockerWindows.removeAll()
-    logger.timeEnd("close-windows")
 
     // Restore focus to the previously active application.
     if let app = previouslyActiveApp {
-      app.activate(options: [])
+//      app.activate(options: .activateIgnoringOtherApps)
+      app.activate(options: .activateAllWindows)
       previouslyActiveApp = nil
     }
+    
+    logger.log("Closed all blocker windows")
   }
 }

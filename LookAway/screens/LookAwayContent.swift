@@ -53,14 +53,20 @@ struct LookAwayContent: View {
       .padding(20)
     }
     .background(
-      LinearGradient(
-        gradient: Gradient(colors: [
-          Color.theme.background.opacity(0.1),
-          Color.theme.background.opacity(0.6),
-        ]),
-        startPoint: .top,
-        endPoint: .bottom,
-      )
+      ZStack {
+        VisualEffectView(
+          material: .hudWindow,
+          blendingMode: .behindWindow,
+        )
+        LinearGradient(
+          gradient: Gradient(colors: [
+            Color.theme.background.opacity(0.7),
+            Color.theme.background.opacity(0.95),
+          ]),
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      }
     )
   }
 }

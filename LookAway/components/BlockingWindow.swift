@@ -44,6 +44,10 @@ class BlockingWindow: NSWindow {
     self.isReleasedWhenClosed = false
     // Assign the window contents
     self.contentView = contentView
+
+    // Make the window background clear for blur effect
+    self.isOpaque = false
+    self.backgroundColor = .clear
   }
 
   override var canBecomeKey: Bool {
@@ -66,12 +70,10 @@ class BlockingWindow: NSWindow {
     //    print("Key: \(key)")
     //    print("Matches? \(key == KeyCodes.escape.rawValue)")
     let delay = { (duration: TimeInterval) in
-      self.appState?.schedule.logger.time("close-windows")
       // TODO This will advance to the next break in our schedule but we really want to rewind to the working phase of the current break in our schedule.
       self.appState?.schedule.delay(duration)
     }
     let skip = { () in
-      self.appState?.schedule.logger.time("close-windows")
       self.appState?.schedule.skip()
     }
 

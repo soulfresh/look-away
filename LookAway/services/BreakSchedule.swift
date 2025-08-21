@@ -134,7 +134,6 @@ class BreakSchedule: ObservableObject {
   func delay(_ duration: TimeInterval) {
     guard let cycle = cycle else { return }
 
-    logger.time("close-windows")
     delayed += 1
     // Keep the current work cycle but rewind to the working phase.
     cycle.startWorking(duration)
@@ -143,7 +142,6 @@ class BreakSchedule: ObservableObject {
   /// Skip the current break and immediately start the working phase of the next
   /// work cycle.
   func skip() {
-    logger.time("close-windows")
     skipped += 1
     // Advance to the next work cycle.
     startNextWorkCycle()
@@ -158,7 +156,6 @@ class BreakSchedule: ObservableObject {
       return
     }
 
-    logger.time("close-windows")
     logger.log("Shutting down the current work cycle.")
 
     // Stop listening to the old work cycle.
