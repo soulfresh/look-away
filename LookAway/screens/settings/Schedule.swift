@@ -31,7 +31,7 @@ struct Schedule: View {
 
     // When the settings window is opened, pause the app state to prevent
     // the app from blocking user interaction while the settings are being edited.
-    appState.pause()
+    appState.schedule.pause()
   }
 
   var body: some View {
@@ -139,7 +139,7 @@ struct Schedule: View {
 
     logger.log("Starting new schedule...")
     // Update app state with the new schedule.
-    appState.setSchedule(
+    appState.schedule.setSchedule(
       schedule.enumerated().map { i, config in
         WorkCycle(
           frequency: config.workLength,
@@ -153,7 +153,7 @@ struct Schedule: View {
       })
 
     // Start the new schedule.
-    appState.start()
+    appState.schedule.start()
   }
 }
 

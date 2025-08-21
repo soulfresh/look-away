@@ -32,7 +32,7 @@ struct LookAwaySettings: View {
 
     // When the settings window is opened, pause the app state to prevent
     // the app from blocking user interaction while the settings are being edited.
-    appState.pause()
+    appState.schedule.pause()
   }
 
   var body: some View {

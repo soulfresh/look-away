@@ -87,7 +87,7 @@ struct DurationForm: View {
           //          )
         }.padding(20)
       }
-      .onChange(of: timeSpan) { newValue in
+      .onChange(of: timeSpan) { _, newValue in
         print("TimeSpan changed to: \(newValue)")
       }
     }

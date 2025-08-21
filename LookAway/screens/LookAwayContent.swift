@@ -11,15 +11,13 @@ struct LookAwayContent: View {
     VStack {
 
       HStack {
-        AppIcon(percent: 1 - (appState.remainingTime / appState.phaseLength))
+        AppIcon(
+          percent: 1 - (
+            appState.schedule.remainingTime / appState.schedule.phaseLength
+          )
+        )
         Spacer()
-        HStack {
-          ScoreText(title: "Completed", score: appState.completed)
-            .padding(.trailing, 20)
-          ScoreText(title: "Delayed", score: appState.delayed, positive: false)
-            .padding(.trailing, 20)
-          ScoreText(title: "Skipped", score: appState.skipped, positive: false)
-        }
+        BreakCounts(appState: appState)
         Spacer()
       }
       .padding([.leading, .vertical])
@@ -28,36 +26,19 @@ struct LookAwayContent: View {
         VStack {
           Spacer()
 
-          HStack(spacing: 0) {
-            let timeString =
-              TimeFormatter
-              .format(duration: appState.remainingTime)
-
-            ForEach(Array(timeString.enumerated()), id: \.offset) { index, char in
-              Text(String(char))
-                .font(.system(size: 80, weight: .thin))
-                .foregroundStyle(
-                  index < 2 && appState.remainingTime <= 60
-                    ? Color.theme.border.opacity(0.7)
-                    : index == 2
-                      ? Color.theme.border.opacity(0.7)
-                      : Color.accentColor.opacity(0.7)
-                )
-                .frame(width: char == ":" ? 20 : 50, alignment: .center)
-            }
-          }
+          CountDown(appState: appState)
 
           Spacer()
 
           HStack {
             KeyHintButton(title: "Delay 1min", key: "1") {
-              appState.delay(60)
+              appState.schedule.delay(60)
             }
             KeyHintButton(title: "Delay 5mins", key: "5") {
-              appState.delay(60 * 5)
+              appState.schedule.delay(60 * 5)
             }
             KeyHintButton(title: "Delay 10mins", key: "0") {
-              appState.delay(60 * 10)
+              appState.schedule.delay(60 * 10)
             }
 
             Spacer()
@@ -67,7 +48,7 @@ struct LookAwayContent: View {
               key: "Esc",
               color: Color.theme.error,
               action: {
-                appState.skip()
+                appState.schedule.skip()
               })
           }
 
@@ -100,4 +81,51 @@ struct LookAwayContent: View {
       ],
       logger: Logger()
     ))
+}
+
+struct BreakCounts: View {
+  let appState: AppState
+  
+  var body: some View {
+    HStack {
+      ScoreText(title: "Completed", score: appState.schedule.completed)
+        .padding(.trailing, 20)
+      ScoreText(
+        title: "Delayed",
+        score: appState.schedule.delayed,
+        positive: false
+      )
+        .padding(.trailing, 20)
+      ScoreText(
+        title: "Skipped",
+        score: appState.schedule.skipped,
+        positive: false
+      )
+    }
+  }
+}
+
+struct CountDown: View {
+  let appState: AppState
+  
+  var body: some View {
+    HStack(spacing: 0) {
+      let timeString =
+      TimeFormatter
+        .format(duration: appState.schedule.remainingTime)
+      
+      ForEach(Array(timeString.enumerated()), id: \.offset) { index, char in
+        Text(String(char))
+          .font(.system(size: 80, weight: .thin))
+          .foregroundStyle(
+            index < 2 && appState.schedule.remainingTime <= 60
+            ? Color.theme.border.opacity(0.7)
+            : index == 2
+            ? Color.theme.border.opacity(0.7)
+            : Color.accentColor.opacity(0.7)
+          )
+          .frame(width: char == ":" ? 20 : 50, alignment: .center)
+      }
+    }
+  }
 }

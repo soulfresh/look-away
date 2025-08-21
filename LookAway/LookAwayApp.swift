@@ -34,7 +34,7 @@ struct MenuBarButton: View {
   @ObservedObject var appState: AppState
 
   var body: some View {
-    AppIcon(percent: 1 - (appState.remainingTime / appState.phaseLength))
+    AppIcon(percent: 1 - (appState.schedule.remainingTime / appState.schedule.phaseLength))
   }
 }
 
@@ -43,13 +43,13 @@ struct AppMenu: View {
   @EnvironmentObject var appState: AppState
 
   var body: some View {
-    Button(appState.isPaused ? "Resume" : "Pause") {
-      appState.togglePaused()
+    Button(appState.schedule.isPaused ? "Resume" : "Pause") {
+      appState.schedule.togglePaused()
     }
     // TODO Get the shortcut from KeyboardShortcuts somehow
     .keyboardShortcut("p", modifiers: [.command, .option, .control])
     Button("Take a Break") {
-      appState.startBreak()
+      appState.schedule.startBreak()
     }
     .keyboardShortcut("b", modifiers: [.command, .option, .control])
     Divider()
@@ -61,7 +61,9 @@ struct AppMenu: View {
       NSApplication.shared.terminate(nil)
     }
     Divider()
-    Text("Next: \(TimeFormatter.format(duration: appState.remainingTime))")
+    Text(
+      "Next: \(TimeFormatter.format(duration: appState.schedule.remainingTime))"
+    )
   }
 }
 
@@ -108,7 +110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     self.logger.log("initialized")
 
     if !Environment.isPreview {
-      appState.start()
+      appState.schedule.start()
     }
   }
 
@@ -144,16 +146,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
 
     // Initialize the global hotkeys
     KeyboardShortcuts.onKeyUp(for: .togglePause) { [weak self] in
-      self?.appState.togglePaused()
+      self?.appState.schedule.togglePaused()
     }
     KeyboardShortcuts.onKeyUp(for: .takeBreak) { [weak self] in
-      self?.appState.startBreak()
+      self?.appState.schedule.startBreak()
     }
   }
 
   func applicationWillTerminate(_ aNotification: Notification) {
     // Cancel the timer task when the application is about to terminate.
-    appState.cancelTimer()
+    appState.schedule.cancelTimer()
   }
 
   func openSettingsWindow() {
@@ -269,7 +271,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
 
     // Restore focus to the previously active application.
     if let app = previouslyActiveApp {
-      app.activate(options: .activateIgnoringOtherApps)
+      app.activate(options: [])
       previouslyActiveApp = nil
     }
   }

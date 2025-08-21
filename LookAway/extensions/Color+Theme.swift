@@ -6,8 +6,8 @@ extension Color {
 }
 
 struct Theme {
-  let primary = Color("PrimaryColor")
-  let secondary = Color("SecondaryColor")
+  let primary = Color("BrandPrimaryColor")
+  let secondary = Color("BrandSecondaryColor")
   let accent = Color("AccentColor")
 
   let background = Color("BackgroundColor")

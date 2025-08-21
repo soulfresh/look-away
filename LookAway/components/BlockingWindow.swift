@@ -66,13 +66,13 @@ class BlockingWindow: NSWindow {
     //    print("Key: \(key)")
     //    print("Matches? \(key == KeyCodes.escape.rawValue)")
     let delay = { (duration: TimeInterval) in
-      self.appState?.logger.time("close-windows")
+      self.appState?.schedule.logger.time("close-windows")
       // TODO This will advance to the next break in our schedule but we really want to rewind to the working phase of the current break in our schedule.
-      self.appState?.delay(duration)
+      self.appState?.schedule.delay(duration)
     }
     let skip = { () in
-      self.appState?.logger.time("close-windows")
-      self.appState?.skip()
+      self.appState?.schedule.logger.time("close-windows")
+      self.appState?.schedule.skip()
     }
 
     switch (key, flags) {
