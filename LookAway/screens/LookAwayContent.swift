@@ -5,19 +5,16 @@ import SwiftUI
 /// This view is responsible for rendering the user interface that appears on the
 /// full-screen preview windows.
 struct LookAwayContent: View {
-  @EnvironmentObject var appState: AppState
+  @EnvironmentObject var schedule: BreakSchedule
 
   var body: some View {
     VStack {
-
       HStack {
         AppIcon(
-          percent: 1 - (
-            appState.schedule.remainingTime / appState.schedule.phaseLength
-          )
+          percent: 1 - (schedule.remainingTime / schedule.phaseLength)
         )
         Spacer()
-        BreakCounts(appState: appState)
+        BreakCounts()
         Spacer()
       }
       .padding([.leading, .vertical])
@@ -26,19 +23,19 @@ struct LookAwayContent: View {
         VStack {
           Spacer()
 
-          CountDown(appState: appState)
+          CountDown()
 
           Spacer()
 
           HStack {
             KeyHintButton(title: "Delay 1min", key: "1") {
-              appState.schedule.delay(60)
+              schedule.delay(60)
             }
             KeyHintButton(title: "Delay 5mins", key: "5") {
-              appState.schedule.delay(60 * 5)
+              schedule.delay(60 * 5)
             }
             KeyHintButton(title: "Delay 10mins", key: "0") {
-              appState.schedule.delay(60 * 10)
+              schedule.delay(60 * 10)
             }
 
             Spacer()
@@ -48,10 +45,9 @@ struct LookAwayContent: View {
               key: "Esc",
               color: Color.theme.error,
               action: {
-                appState.schedule.skip()
+                schedule.skip()
               })
           }
-
         }
       }
       .padding(20)
@@ -69,36 +65,22 @@ struct LookAwayContent: View {
   }
 }
 
-#Preview {
-  LookAwayContent().environmentObject(
-    AppState(
-      schedule: [
-        WorkCycle(
-          frequency: 10,
-          duration: 5,
-          logger: Logger()
-        )
-      ],
-      logger: Logger()
-    ))
-}
-
 struct BreakCounts: View {
-  let appState: AppState
-  
+  @EnvironmentObject var schedule: BreakSchedule
+
   var body: some View {
     HStack {
-      ScoreText(title: "Completed", score: appState.schedule.completed)
+      ScoreText(title: "Completed", score: schedule.completed)
         .padding(.trailing, 20)
       ScoreText(
         title: "Delayed",
-        score: appState.schedule.delayed,
+        score: schedule.delayed,
         positive: false
       )
-        .padding(.trailing, 20)
+      .padding(.trailing, 20)
       ScoreText(
         title: "Skipped",
-        score: appState.schedule.skipped,
+        score: schedule.skipped,
         positive: false
       )
     }
@@ -106,26 +88,47 @@ struct BreakCounts: View {
 }
 
 struct CountDown: View {
-  let appState: AppState
-  
+  @EnvironmentObject var schedule: BreakSchedule
+
   var body: some View {
     HStack(spacing: 0) {
       let timeString =
-      TimeFormatter
-        .format(duration: appState.schedule.remainingTime)
-      
+        TimeFormatter
+        .format(duration: schedule.remainingTime)
+
       ForEach(Array(timeString.enumerated()), id: \.offset) { index, char in
         Text(String(char))
           .font(.system(size: 80, weight: .thin))
           .foregroundStyle(
-            index < 2 && appState.schedule.remainingTime <= 60
-            ? Color.theme.border.opacity(0.7)
-            : index == 2
-            ? Color.theme.border.opacity(0.7)
-            : Color.accentColor.opacity(0.7)
+            index < 2 && schedule.remainingTime <= 60
+              ? Color.theme.border.opacity(0.7)
+              : index == 2
+                ? Color.theme.border.opacity(0.7)
+                : Color.accentColor.opacity(0.7)
           )
           .frame(width: char == ":" ? 20 : 50, alignment: .center)
       }
     }
   }
+}
+
+#Preview {
+  let schedule = [
+    WorkCycle(
+      frequency: 10,
+      duration: 5,
+      logger: Logger()
+    )
+  ]
+  LookAwayContent()
+    .environmentObject(
+      AppState(
+        schedule: schedule,
+        logger: Logger()
+      )
+    )
+    .environmentObject(BreakSchedule(
+      schedule: schedule,
+      logger: Logger()
+    ))
 }

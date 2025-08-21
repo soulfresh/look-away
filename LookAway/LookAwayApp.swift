@@ -23,33 +23,35 @@ struct LookAwayApp: App {
     MenuBarExtra {
       AppMenu()
         .environmentObject(appDelegate.appState)
+        .environmentObject(appDelegate.appState.schedule)
     } label: {
-      MenuBarButton(appState: appDelegate.appState)
+      MenuBarButton(schedule: appDelegate.appState.schedule)
     }
   }
 }
 
 /// The button/icon for our app in the system menu.
 struct MenuBarButton: View {
-  @ObservedObject var appState: AppState
+  @ObservedObject var schedule: BreakSchedule
 
   var body: some View {
-    AppIcon(percent: 1 - (appState.schedule.remainingTime / appState.schedule.phaseLength))
+    AppIcon(percent: 1 - (schedule.remainingTime / schedule.phaseLength))
   }
 }
 
 /// The system menu bar dropdown shown when the user clicks our app icon in the menu bar.
 struct AppMenu: View {
   @EnvironmentObject var appState: AppState
+  @EnvironmentObject var schedule: BreakSchedule
 
   var body: some View {
-    Button(appState.schedule.isPaused ? "Resume" : "Pause") {
-      appState.schedule.togglePaused()
+    Button(schedule.isPaused ? "Resume" : "Pause") {
+      schedule.togglePaused()
     }
     // TODO Get the shortcut from KeyboardShortcuts somehow
     .keyboardShortcut("p", modifiers: [.command, .option, .control])
     Button("Take a Break") {
-      appState.schedule.startBreak()
+      schedule.startBreak()
     }
     .keyboardShortcut("b", modifiers: [.command, .option, .control])
     Divider()
@@ -62,7 +64,7 @@ struct AppMenu: View {
     }
     Divider()
     Text(
-      "Next: \(TimeFormatter.format(duration: appState.schedule.remainingTime))"
+      "Next: \(TimeFormatter.format(duration: schedule.remainingTime))"
     )
   }
 }
@@ -118,8 +120,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     // Store the default presentation options so we can restore them later.
     self.defaultPresentationOptions = NSApplication.shared.presentationOptions
 
-    // Toggle the blocking windows on AppState.isBlocking changes.
-    appState.$isBlocking
+    // Toggle the blocking windows on AppState.schedule.isBlocking changes.
+    appState.schedule.$isBlocking
       .removeDuplicates()
       .sink { [weak self] isShowing in
         if isShowing {
@@ -233,6 +235,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
         // The ContentView will get the AppState from the environment.
         let contentView = LookAwayContent()
           .environmentObject(appState)
+          .environmentObject(appState.schedule)
 
         let window = BlockingWindow(
           screen: screen,
