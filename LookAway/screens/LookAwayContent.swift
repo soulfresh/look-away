@@ -11,7 +11,9 @@ struct LookAwayContent: View {
     VStack {
       HStack {
         AppIcon(
-          percent: 1 - (schedule.remainingTime / schedule.phaseLength)
+          size: 18,
+          percent: 1 - (schedule.remainingTime / schedule.phaseLength),
+          state: .running
         )
         Spacer()
         BreakCounts()
@@ -133,8 +135,10 @@ struct CountDown: View {
         logger: Logger()
       )
     )
-    .environmentObject(BreakSchedule(
-      schedule: schedule,
-      logger: Logger()
-    ))
+    .environmentObject(
+      BreakSchedule(
+        schedule: schedule,
+        logger: Logger()
+      )
+    )
 }

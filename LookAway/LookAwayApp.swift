@@ -26,17 +26,8 @@ struct LookAwayApp: App {
         .environmentObject(appDelegate.appState)
         .environmentObject(appDelegate.appState.schedule)
     } label: {
-      MenuBarButton(schedule: appDelegate.appState.schedule)
+      MenuBarIconButton(schedule: appDelegate.appState.schedule)
     }
-  }
-}
-
-/// The button/icon for our app in the system menu.
-struct MenuBarButton: View {
-  @ObservedObject var schedule: BreakSchedule
-
-  var body: some View {
-    AppIcon(percent: 1 - (schedule.remainingTime / schedule.phaseLength))
   }
 }
 
@@ -90,7 +81,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
 
   /// The default presentation options given to the application when it starts. These are used to restore the application to its original state when the blocking windows are closed since the blocking state will change the presentation options to disable system features like app switching and Mission Control.
   private var defaultPresentationOptions: NSApplication.PresentationOptions = []
-  var audioPlayer: AVAudioPlayer?
+  /// The audio player used to play a sound when the blocking windows are closed.
+  var closeSound: AVAudioPlayer?
 
   override init() {
     let logger = Logger(enabled: !Environment.isTesting)
@@ -121,6 +113,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   func applicationDidFinishLaunching(_ notification: Notification) {
     // Store the default presentation options so we can restore them later.
     self.defaultPresentationOptions = NSApplication.shared.presentationOptions
+
+    // Create the audio player for the close sound
+    if let url = Bundle.main.url(forResource: "Bottle", withExtension: "aiff") {
+      do {
+        closeSound = try AVAudioPlayer(contentsOf: url)
+      } catch {
+        logger.error("Failed to create close sound: \(error)")
+      }
+    } else {
+      logger.error("Bottle.aiff not found in bundle.")
+    }
 
     // Toggle the blocking windows on AppState.schedule.isBlocking changes.
     appState.schedule.$isBlocking
@@ -258,27 +261,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     }
     NSApp.activate(ignoringOtherApps: true)
   }
-  
-  func playSound(sound: String, type: String) {
-    if let url = Bundle.main.url(forResource: sound, withExtension: type) {
-      do {
-        audioPlayer = try AVAudioPlayer(contentsOf: url)
-        audioPlayer?.play()
-        logger.log("Playing goodbye sound")
-      } catch {
-        logger.error("Failed to play sound: \(error)")
-      }
-    } else {
-      logger.error("Bottle.aiff not found in bundle.")
-    }
-  }
 
   /**
    * Closes all window blockers, allowing the user access to their computer again.
    */
   func closeScreenBlockers() {
-    // Play a sound to indicate the break is over.
-    playSound(sound: "Bottle", type: "aiff")
+    closeSound?.play()
     
     // Restore the default presentation options.
     NSApplication.shared.presentationOptions = defaultPresentationOptions

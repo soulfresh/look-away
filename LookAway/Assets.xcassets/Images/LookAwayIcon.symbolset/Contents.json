@@ -1,0 +1,12 @@
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "symbols" : [
+    {
+      "filename" : "look-away-icon-symbol2.svg",
+      "idiom" : "universal"
+    }
+  ]
+}
