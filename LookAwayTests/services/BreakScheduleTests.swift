@@ -24,17 +24,27 @@ class BreakScheduleTestContext {
           frequency: WORK_1,
           duration: BREAK_1,
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 0"),
-          inactivityLength: INACTIVITY_LENGTH,
+          inactivityThresholds: [
+            InactivityIndicator(
+              event: .keyUp,
+              threshold: INACTIVITY_LENGTH
+            )
+          ],
           clock: clock.clock,
-          getSecondsSinceLastUserInteraction: { [] in INACTIVITY_LENGTH + 1 }
+          getSecondsSinceLastUserInteraction: { _ in INACTIVITY_LENGTH + 1 }
         ),
         WorkCycle(
           frequency: WORK_2,
           duration: BREAK_2,
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 1"),
-          inactivityLength: INACTIVITY_LENGTH,
+          inactivityThresholds: [
+            InactivityIndicator(
+              event: .keyUp,
+              threshold: INACTIVITY_LENGTH
+            )
+          ],
           clock: clock.clock,
-          getSecondsSinceLastUserInteraction: { [] in INACTIVITY_LENGTH * 2 }
+          getSecondsSinceLastUserInteraction: { _ in INACTIVITY_LENGTH * 2 }
         ),
       ],
       logger: LogWrapper(logger: logger, label: "Test schedule"),
@@ -55,7 +65,7 @@ struct BreakScheduleTests {
     let context = BreakScheduleTestContext()
     let clock = context.clock
     let schedule = context.schedule
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.remainingTime == 0)
     #expect(schedule.isPaused == false)
@@ -288,13 +298,13 @@ struct BreakScheduleTests {
     schedule.start()
 
     // Advance to the middle of the first break
-    await clock.advanceBy(WORK_1 + (BREAK_1/2))
-    
+    await clock.advanceBy(WORK_1 + (BREAK_1 / 2))
+
     #expect(schedule.isBlocking == true)
-    
+
     schedule.skip()
     await clock.tick()
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.remainingTime == WORK_2)
     #expect(schedule.isPaused == false)
@@ -302,15 +312,15 @@ struct BreakScheduleTests {
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 2)
     #expect(schedule.completed == 0)
-    
+
     // Advance to the middle of the second break
-    await clock.advanceBy(WORK_2 + (BREAK_2/2))
-    
+    await clock.advanceBy(WORK_2 + (BREAK_2 / 2))
+
     #expect(schedule.isBlocking == true)
-    
+
     schedule.skip()
     await clock.tick()
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.remainingTime == WORK_1)
     #expect(schedule.isPaused == false)
@@ -318,10 +328,10 @@ struct BreakScheduleTests {
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 3)
     #expect(schedule.completed == 0)
-    
+
     // Finally take a break
     await clock.advanceBy(WORK_1 + BREAK_1 + 2)
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.remainingTime == WORK_2)
     #expect(schedule.isPaused == false)
@@ -329,7 +339,7 @@ struct BreakScheduleTests {
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 4)
     #expect(schedule.completed == 1)
-    
+
     await context.afterEach()
   }
 
@@ -351,13 +361,13 @@ struct BreakScheduleTests {
     await clock.advanceBy(WORK_1 + BREAK_1 + 2)
     await clock.advanceBy(WORK_2 + BREAK_2 + 2)
     await clock.advanceBy(3)
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 5)
     #expect(schedule.completed == 4)
-    
+
     await context.afterEach()
   }
 
@@ -368,42 +378,42 @@ struct BreakScheduleTests {
     let schedule = context.schedule
     schedule.start()
 
-    await clock.advanceBy(WORK_1 + (BREAK_1/2))
-    
+    await clock.advanceBy(WORK_1 + (BREAK_1 / 2))
+
     #expect(schedule.isBlocking == true)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     schedule.delay(10)
     await clock.tick()
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 1)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     await clock.advanceBy(13)
-    
+
     #expect(schedule.isBlocking == true)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 1)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     schedule.delay(10)
     await clock.tick()
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 2)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     await clock.advanceBy(10 + BREAK_1 + 2)
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 0)
@@ -421,37 +431,37 @@ struct BreakScheduleTests {
     schedule.start()
 
     // Advance to the middle of the first break
-    await clock.advanceBy(WORK_1 + (BREAK_1/2))
-    
+    await clock.advanceBy(WORK_1 + (BREAK_1 / 2))
+
     #expect(schedule.isBlocking == true)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     // Delay for 10 seconds
     schedule.delay(10)
     await clock.tick()
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 1)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     // Advance to the middle of the break again
     await clock.advanceBy(13)
-    
+
     #expect(schedule.isBlocking == true)
     #expect(schedule.skipped == 0)
     #expect(schedule.delayed == 1)
     #expect(schedule.count == 1)
     #expect(schedule.completed == 0)
-    
+
     // Skip the break
     schedule.skip()
     await clock.tick()
-    
+
     #expect(schedule.isBlocking == false)
     #expect(schedule.skipped == 1)
     #expect(schedule.delayed == 0)
@@ -468,7 +478,7 @@ struct BreakScheduleTests {
     var schedule: BreakSchedule? = context.schedule
 
     schedule!.start()
-    
+
     await clock.tick()
     #expect(schedule?.remainingTime == WORK_1)
 

@@ -1,6 +1,7 @@
 import AVFoundation
 import Carbon
 import Combine
+import Darwin
 import KeyboardShortcuts
 import SwiftUI
 
@@ -88,7 +89,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     let logger = Logger(enabled: !Environment.isTesting)
     self.logger = logger
 
-    storage = Storage(logger: LogWrapper(logger: logger, label: "Storage".cyan()))
+    storage = Storage(
+      logger: LogWrapper(logger: logger, label: "Storage".cyan()),
+      // Whether to load the debug schedule
+      debug: true
+    )
 
     let config = storage.loadSchedule()
 

@@ -31,7 +31,12 @@ class WorkCycleTestContext {
 
   init(
     initialInteraction: TimeInterval = 10,
-    inactivityThreshold: TimeInterval = 10,
+    inactivityThresholds: [InactivityIndicator] = [
+      InactivityIndicator(
+        event: .keyUp,
+        threshold: 10
+      )
+    ],
     debug: Bool = false
   ) {
     // Create a mutable interaction value that can be referenced in our callback.
@@ -42,9 +47,9 @@ class WorkCycleTestContext {
       frequency: 100,
       duration: 50,
       logger: Logger(enabled: debug),
-      inactivityLength: inactivityThreshold,
+      inactivityThresholds: inactivityThresholds,
       clock: clock.clock,
-      getSecondsSinceLastUserInteraction: { interactionTime.value }
+      getSecondsSinceLastUserInteraction: { _ in interactionTime.value }
     )
   }
 
@@ -94,7 +99,7 @@ struct WorkCycleTests {
     #expect(breakInstance.phase == .working(remaining: 99))
 
     await clock.advanceBy(100)
-    
+
     // Should continue directly to the breaking phase since the user has
     // been inactive for at least the inactivity threshold.
     #expect(breakInstance.phase == .breaking(remaining: 50))
@@ -102,12 +107,12 @@ struct WorkCycleTests {
 
     await test.afterEach()
   }
-  
+
   @Test("Should wait for the user to become inactive before starting the break.")
   func testWaitingPhase() async throws {
     let test = WorkCycleTestContext(
       initialInteraction: 5,
-      inactivityThreshold: 10,
+      inactivityThresholds: [InactivityIndicator(event: .keyUp, threshold: 10)],
     )
     let clock = test.clock
     let breakInstance = test.brk
@@ -128,7 +133,7 @@ struct WorkCycleTests {
     #expect(breakInstance.phase == .working(remaining: 99))
 
     await clock.advanceBy(100)
-    
+
     #expect(breakInstance.phase == .waiting)
     #expect(breakInstance.isRunning == true)
 
@@ -136,10 +141,10 @@ struct WorkCycleTests {
     // has been started with a 5 second wait because the last interaction was 5
     // seconds ago and our threshold is 10 seconds.
     await clock.advanceBy(5)
-    
+
     #expect(breakInstance.phase == .waiting)
     #expect(breakInstance.isRunning == true)
-    
+
     // Simulate the user becoming inactive by updating the callback.
     test.interactionTime.value = 11
 

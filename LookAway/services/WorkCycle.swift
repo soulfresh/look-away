@@ -56,7 +56,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   let breakLength: TimeSpan
 
   /// How long the user must be inactive before starting the break.
-  let inactivityLength: TimeSpan
+  let inactivityThresholds: [InactivityIndicator]?
 
   /// Provides an interface for measuring code execution timing.
   private let logger: Logging
@@ -73,22 +73,21 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   /// - Parameter frequency: The frequency of the break in seconds.
   /// - Parameter duration: The duration of the break in seconds.
   /// - Parameter logger
-  /// - Parameter inactivityLength: The length of inactivity required before starting the break, defaults to 5 seconds.
+  /// - Parameter inactivityThresholds: A list of event types to check for user activity.
   /// - Parameter clock: The clock to use for time-based operations, defaults to `ContinuousClock`. This is useful for controlling the timing of the break in tests or different environments.
   /// - Parameter getSecondsSinceLastUserInteraction: A callback to get the number of seconds since the last user interaction. This is useful for mocking in tests.
   init(
     frequency: TimeSpan,
     duration: TimeSpan,
     logger: Logging,
-    inactivityLength: TimeSpan? = nil,
+    inactivityThresholds: [InactivityIndicator]? = nil,
     clock: ClockType? = nil,
     getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
     self.workLength = frequency
     self.breakLength = duration
     self.logger = logger
-    self.inactivityLength = inactivityLength ?? TimeSpan(value: 5, unit: .second)
-    logger.log("WorkCycle inactivityLength: \(self.inactivityLength)")
+    self.inactivityThresholds = inactivityThresholds
     self.clock = clock ?? ContinuousClock() as! ClockType
     self.getSecondsSinceLastUserInteraction = getSecondsSinceLastUserInteraction
   }
@@ -97,7 +96,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     frequency: TimeInterval,
     duration: TimeInterval,
     logger: Logging,
-    inactivityLength: TimeInterval? = nil,
+    inactivityThresholds: [InactivityIndicator]? = nil,
     clock: ClockType? = nil,
     getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
@@ -105,8 +104,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
       frequency: TimeSpan(value: frequency, unit: .second),
       duration: TimeSpan(value: duration, unit: .second),
       logger: logger,
-      inactivityLength: inactivityLength != nil
-        ? TimeSpan(value: inactivityLength!, unit: .second) : nil,
+      inactivityThresholds: inactivityThresholds,
       clock: clock,
       getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction
     )
@@ -229,8 +227,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   private func waitForInactivity() async throws {
     phase = .waiting
     let listener = InactivityListener(
-      duration: inactivityLength.seconds,
       logger: logger,
+      thresholds: inactivityThresholds,
       getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
       clock: clock
     )
