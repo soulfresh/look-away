@@ -8,11 +8,12 @@ let WORK_1: TimeInterval = 10
 let WORK_2: TimeInterval = 20
 let BREAK_1: TimeInterval = 6
 let BREAK_2: TimeInterval = 10
+let INACTIVITY_LENGTH: TimeInterval = 300
 
 @MainActor
 class BreakScheduleTestContext {
   let clock: BreakClock = BreakClock()
-  let schedule: BreakSchedule
+  let schedule: BreakSchedule<TestClock<Duration>>
 
   init(debug: Bool = false) {
     let logger = Logger(enabled: debug)
@@ -23,13 +24,17 @@ class BreakScheduleTestContext {
           frequency: WORK_1,
           duration: BREAK_1,
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 0"),
-          clock: clock.clock
+          inactivityLength: INACTIVITY_LENGTH,
+          clock: clock.clock,
+          getSecondsSinceLastUserInteraction: { [] in INACTIVITY_LENGTH + 1 }
         ),
         WorkCycle(
           frequency: WORK_2,
           duration: BREAK_2,
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 1"),
-          clock: clock.clock
+          inactivityLength: INACTIVITY_LENGTH,
+          clock: clock.clock,
+          getSecondsSinceLastUserInteraction: { [] in INACTIVITY_LENGTH * 2 }
         ),
       ],
       logger: LogWrapper(logger: logger, label: "Test schedule"),
@@ -95,7 +100,8 @@ struct BreakScheduleTests {
     await clock.advanceBy(WORK_1)
     #expect(schedule.remainingTime == 0)
 
-    // Transition to the breaking phase
+    // Transition to the breaking phase. Will skip the waiting phase because
+    // the user is configured to be inactive.
     await clock.advanceBy(1)
     #expect(schedule.isBlocking == true)
     #expect(schedule.remainingTime == BREAK_1)

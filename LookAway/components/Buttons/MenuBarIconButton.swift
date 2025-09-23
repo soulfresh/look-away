@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The button/icon for our app in the system menu.
 struct MenuBarIconButton: View {
-  @ObservedObject var schedule: BreakSchedule
+  @ObservedObject var schedule: BreakSchedule<ContinuousClock>
 
   var body: some View {
     Image(
@@ -43,7 +43,7 @@ extension View {
 
 #Preview {
   let schedule = [
-    WorkCycle(
+    WorkCycle<ContinuousClock>(
       frequency: 10,
       duration: 5,
       logger: Logger()

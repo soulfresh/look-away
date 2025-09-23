@@ -34,7 +34,7 @@ struct LookAwayApp: App {
 /// The system menu bar dropdown shown when the user clicks our app icon in the menu bar.
 struct AppMenu: View {
   @EnvironmentObject var appState: AppState
-  @EnvironmentObject var schedule: BreakSchedule
+  @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
 
   var body: some View {
     Button(schedule.isPaused ? "Resume" : "Pause") {

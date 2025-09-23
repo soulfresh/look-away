@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 @MainActor
-class BreakSchedule: ObservableObject {
+class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   /**
    * When `true`, the application will display the blocking windows that
    * prevent interactions with the rest of the system.
@@ -39,10 +39,10 @@ class BreakSchedule: ObservableObject {
   public let logger: Logging
 
   /// The schedule of work cycles that the application will follow.
-  private var schedule: [WorkCycle]
+  private var schedule: [WorkCycle<ClockType>]
 
   /// The current work cycle that the application is following.
-  private var cycle: WorkCycle? {
+  private var cycle: WorkCycle<ClockType>? {
     schedule.getElement(at: index)
   }
 
@@ -54,7 +54,7 @@ class BreakSchedule: ObservableObject {
    * - Parameter logger: A logger to use for debugging and performance measurements.
    */
   init(
-    schedule _schedule: [WorkCycle],
+    schedule _schedule: [WorkCycle<ClockType>],
     logger: Logging,
   ) {
     self.logger = logger
@@ -65,7 +65,7 @@ class BreakSchedule: ObservableObject {
 
   /// Set a new schedule of work cycles. This will fully reset the state and
   /// you will need to call `start()` to begin the first work cycle.
-  func setSchedule(_ schedule: [WorkCycle]) {
+  func setSchedule(_ schedule: [WorkCycle<ClockType>]) {
     // This will also reset the `isPaused` state when `startNextWorkCycle` is
     // called because none of the new WorkCycles have been paused yet.
     self.schedule = schedule
@@ -199,7 +199,7 @@ class BreakSchedule: ObservableObject {
   }
 
   /// Updates the AppState based on the current phase of the active work cycle.
-  private func onWorkCyclePhaseChange(_ phase: WorkCycle.Phase) {
+  private func onWorkCyclePhaseChange(_ phase: WorkCycle<ClockType>.Phase) {
     switch phase {
     case .idle:
       isBlocking = false
@@ -209,6 +209,10 @@ class BreakSchedule: ObservableObject {
       isBlocking = false
       remainingTime = remaining
       phaseLength = cycle!.workLength.seconds
+    case .waiting:
+      isBlocking = false
+      remainingTime = 0
+      phaseLength = 0
     case .breaking(let remaining):
       isBlocking = true
       remainingTime = remaining

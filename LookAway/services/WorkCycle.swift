@@ -1,15 +1,20 @@
 import Combine
 import Foundation
 
+// TODO This should be an Actor
 /// Represents a single break in a user's schedule.
 ///
 /// This class is a self-contained state machine that manages its own timer
 /// and publishes its current phase.
-class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
+class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConvertible, Identifiable {
   /// The different phases a break can be in.
   enum Phase: Equatable {
     case idle
+    /// The user is using the computer.
     case working(remaining: TimeInterval)
+    /// Waiting for a natural pause in the user's system interactions to start the break.
+    case waiting
+    /// The user is taking a break and the blocking windows are shown.
     case breaking(remaining: TimeInterval)
     case finished
 
@@ -19,6 +24,8 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
         return true
       case (.working(let lhsRemaining), .working(let rhsRemaining)):
         return lhsRemaining == rhsRemaining
+      case (.waiting, .waiting):
+        return true
       case (.breaking(let lhsRemaining), .breaking(let rhsRemaining)):
         return lhsRemaining == rhsRemaining
       case (.finished, .finished):
@@ -48,10 +55,16 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   /// How long the break lasts in seconds.
   let breakLength: TimeSpan
 
+  /// How long the user must be inactive before starting the break.
+  let inactivityLength: TimeSpan
+
   /// Provides an interface for measuring code execution timing.
   private let logger: Logging
 
-  private let clock: any Clock<Duration>
+  private let clock: ClockType
+  // A callback to get the number of seconds since the last user interaction.
+  // This allows mocking of GCEventSource in tests.
+  private var getSecondsSinceLastUserInteraction: UserInteractionCallback?
 
   var description: String {
     return "WorkCycle(\(workLength) -> \(breakLength) [\(phase)])"
@@ -60,30 +73,42 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
   /// - Parameter frequency: The frequency of the break in seconds.
   /// - Parameter duration: The duration of the break in seconds.
   /// - Parameter logger
+  /// - Parameter inactivityLength: The length of inactivity required before starting the break, defaults to 5 seconds.
   /// - Parameter clock: The clock to use for time-based operations, defaults to `ContinuousClock`. This is useful for controlling the timing of the break in tests or different environments.
+  /// - Parameter getSecondsSinceLastUserInteraction: A callback to get the number of seconds since the last user interaction. This is useful for mocking in tests.
   init(
     frequency: TimeSpan,
     duration: TimeSpan,
     logger: Logging,
-    clock: any Clock<Duration> = ContinuousClock(),
+    inactivityLength: TimeSpan? = nil,
+    clock: ClockType? = nil,
+    getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
     self.workLength = frequency
     self.breakLength = duration
     self.logger = logger
-    self.clock = clock
+    self.inactivityLength = inactivityLength ?? TimeSpan(value: 5, unit: .second)
+    logger.log("WorkCycle inactivityLength: \(self.inactivityLength)")
+    self.clock = clock ?? ContinuousClock() as! ClockType
+    self.getSecondsSinceLastUserInteraction = getSecondsSinceLastUserInteraction
   }
-  
+
   convenience init(
     frequency: TimeInterval,
     duration: TimeInterval,
     logger: Logging,
-    clock: any Clock<Duration> = ContinuousClock()
+    inactivityLength: TimeInterval? = nil,
+    clock: ClockType? = nil,
+    getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
     self.init(
       frequency: TimeSpan(value: frequency, unit: .second),
       duration: TimeSpan(value: duration, unit: .second),
       logger: logger,
-      clock: clock
+      inactivityLength: inactivityLength != nil
+        ? TimeSpan(value: inactivityLength!, unit: .second) : nil,
+      clock: clock,
+      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction
     )
   }
 
@@ -100,14 +125,17 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
 
     runTask(
       operation: {
-        self.logger.log("Running working phase")
         // Start with the working phase.
+        self.logger.log("Running working phase")
         try await self.runPhase(
           duration: workingDuration ?? self.workLength.seconds,
           phase: Phase.working
         )
-        self.logger.log("Starting break")
+        // Wait for the user to stop interacting with the system
+        self.logger.log("Waiting for inactivity...")
+        try await self.waitForInactivity()
         // Then move to the breaking phase.
+        self.logger.log("Starting break")
         try await self.runPhase(
           duration: self.breakLength.seconds,
           phase: Phase.breaking
@@ -165,17 +193,18 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
     logger.log("Resuming break timer task")
     // If we are already running, do nothing.
     guard !isRunning else { return }
-    //    guard timerTask == nil else { return }
 
     switch phase {
     case .working(let remaining):
       startWorking(remaining)
+    case .waiting:
+      // If we were previously waiting for inactivity, then we can jump right into the
+      // break because only the user will trigger a resume and we can assume that this
+      // indicates they are ready to take a break if that's what was about to happen.
+      startBreak()
     case .breaking(let remaining):
       startBreak(remaining)
     case .idle, .finished: break
-    // TODO What do we do if the phase is idle or completed?
-    // - do nothing?
-    // - start the working phase?
     }
   }
 
@@ -186,11 +215,26 @@ class WorkCycle: ObservableObject, CustomStringConvertible, Identifiable {
     phase = .idle
   }
 
-  /// Cancels the timer task for this break without changing the phase which would cause a binding update in `AppState`.
+  /// Cancels the timer task for this break without changing the phase which would cause a
+  /// binding update in `AppState`.
   func cancel() {
     logger.log("Cancelling break timer task")
+    // Cancelling this task will also cancel the `InactivityListener` task if it is running.
     timerTask?.cancel()
     timerTask = nil
+  }
+
+  /// Wait for the user to stop interacting with the system so we are less likely to
+  /// interrupt the user in the middle of a task.
+  private func waitForInactivity() async throws {
+    phase = .waiting
+    let listener = InactivityListener(
+      duration: inactivityLength.seconds,
+      logger: logger,
+      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
+      clock: clock
+    )
+    try await listener.waitForInactivity()
   }
 
   /// A helper function to run a specific phase of the break cycle for a given duration.

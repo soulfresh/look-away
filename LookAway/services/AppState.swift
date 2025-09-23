@@ -10,14 +10,14 @@ class AppState: ObservableObject {
   @Published var showSettings: Bool = false
   
   /// The schedule instance used to manage work/break cycles.
-  let schedule: BreakSchedule
+  let schedule: BreakSchedule<ContinuousClock>
 
   /**
    * - Parameter schedule: The schedule of work cycles to follow.
    * - Parameter logger: A logger to use for debugging and performance measurements.
    */
   init(
-    schedule _schedule: [WorkCycle],
+    schedule _schedule: [WorkCycle<ContinuousClock>],
     logger: Logging,
   ) {
     self.schedule = BreakSchedule(schedule: _schedule, logger: logger)

@@ -5,7 +5,7 @@ import SwiftUI
 /// This view is responsible for rendering the user interface that appears on the
 /// full-screen preview windows.
 struct LookAwayContent: View {
-  @EnvironmentObject var schedule: BreakSchedule
+  @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
 
   var body: some View {
     VStack {
@@ -74,7 +74,7 @@ struct LookAwayContent: View {
 }
 
 struct BreakCounts: View {
-  @EnvironmentObject var schedule: BreakSchedule
+  @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
 
   var body: some View {
     HStack {
@@ -96,7 +96,7 @@ struct BreakCounts: View {
 }
 
 struct CountDown: View {
-  @EnvironmentObject var schedule: BreakSchedule
+  @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
 
   var body: some View {
     HStack(spacing: 0) {
@@ -122,7 +122,7 @@ struct CountDown: View {
 
 #Preview {
   let schedule = [
-    WorkCycle(
+    WorkCycle<ContinuousClock>(
       frequency: 10,
       duration: 5,
       logger: Logger()
