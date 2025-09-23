@@ -6,20 +6,23 @@ import SwiftUI
 /// full-screen preview windows.
 struct LookAwayContent: View {
   @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
+  var safeAreaTopInset: CGFloat = 0
 
   var body: some View {
     VStack {
       HStack {
         AppIcon(
-          size: 18,
+          size: 26,
           percent: 1 - (schedule.remainingTime / schedule.phaseLength),
-          state: .running
+          state: .running,
+          color: .success
         )
         Spacer()
         BreakCounts()
         Spacer()
       }
       .padding([.leading, .vertical])
+      .padding(.top, safeAreaTopInset)
 
       HStack {
         VStack {

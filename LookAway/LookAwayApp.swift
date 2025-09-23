@@ -243,8 +243,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     // Create a window blocker for each screen.
     if blockerWindows.isEmpty {
       for screen in NSScreen.screens {
+        // Get the top safe area inset (for the notch, if present)
+        let safeAreaTopInset: CGFloat
+        if #available(macOS 12.0, *) {
+          safeAreaTopInset = screen.safeAreaInsets.top
+        } else {
+          safeAreaTopInset = 0
+        }
         // The ContentView will get the AppState from the environment.
-        let contentView = LookAwayContent()
+        let contentView = LookAwayContent(safeAreaTopInset: safeAreaTopInset)
           .environmentObject(appState)
           .environmentObject(appState.schedule)
 

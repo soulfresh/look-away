@@ -38,6 +38,7 @@ struct AppIcon: View {
   var size: CGFloat
   var percent: CGFloat
   var state: AppIconState
+  var color: Color = .red
 
   @State private var pulseOpacity: Double = 1.0
   private let minPulseOpacity: Double = 0.5
@@ -51,10 +52,10 @@ struct AppIcon: View {
           min(1.0, max(0.0, percent))
         )
       )
-      .font(.system(size: size * 0.57, weight: .medium))
+      .font(.system(size: size * 0.57, weight: .black))
       .symbolRenderingMode(.monochrome)
       .foregroundStyle(
-        blendColors(percent: percent, color1: Color.primary, color2: Color.red)
+        blendColors(percent: percent, color1: Color.primary, color2: color)
       )
       
       Image("LookAwayEye")
