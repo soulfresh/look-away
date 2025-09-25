@@ -25,7 +25,7 @@ class BreakScheduleTestContext {
           duration: BREAK_1,
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 0"),
           inactivityThresholds: [
-            InactivityIndicator(
+            ActivityThreshold(
               event: .keyUp,
               threshold: INACTIVITY_LENGTH
             )
@@ -38,7 +38,7 @@ class BreakScheduleTestContext {
           duration: BREAK_2,
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 1"),
           inactivityThresholds: [
-            InactivityIndicator(
+            ActivityThreshold(
               event: .keyUp,
               threshold: INACTIVITY_LENGTH
             )

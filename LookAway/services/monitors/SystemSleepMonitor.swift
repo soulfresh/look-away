@@ -18,7 +18,7 @@ protocol DistributedNotificationCenterProtocol {
 
 extension DistributedNotificationCenter: DistributedNotificationCenterProtocol {}
 
-class SystemSleepListener {
+class SystemSleepMonitor {
   typealias CancelCallback = () -> Void
 
   enum SleepState {
@@ -33,7 +33,7 @@ class SystemSleepListener {
   /// The object used to listen for distributed notification events.
   private let notificationCenter: DistributedNotificationCenterProtocol
   /// The object used to listen for camera events.
-  private let cameraListener: CameraListener
+  private let cameraListener: CameraMonitor
   /// The list of callbacks that can be used to cancel listeners.
   private var cancellables: [CancelCallback] = []
 
@@ -62,7 +62,7 @@ class SystemSleepListener {
   ) {
     self.logger = logger
     self.notificationCenter = notificationCenter
-    self.cameraListener = CameraListener(logger: logger)
+    self.cameraListener = CameraMonitor(logger: logger)
   }
 
   /// Start listening for system sleep/wake events. These will include events
@@ -209,7 +209,7 @@ class SystemSleepListener {
       { (refCon, service, messageType, messageArgument) in
         print("Received IOKit message: \(messageType)")
 
-        let mySelf = Unmanaged<SystemSleepListener>.fromOpaque(refCon!).takeUnretainedValue()
+        let mySelf = Unmanaged<SystemSleepMonitor>.fromOpaque(refCon!).takeUnretainedValue()
 
         switch messageType {
         case UInt32(kIOMessageSystemWillSleep):  //, UInt32(kIOMessageCanSystemSleep):

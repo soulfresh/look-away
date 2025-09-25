@@ -56,7 +56,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   let breakLength: TimeSpan
 
   /// How long the user must be inactive before starting the break.
-  let inactivityThresholds: [InactivityIndicator]?
+  let inactivityThresholds: [ActivityThreshold]?
 
   /// Provides an interface for measuring code execution timing.
   private let logger: Logging
@@ -80,7 +80,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     frequency: TimeSpan,
     duration: TimeSpan,
     logger: Logging,
-    inactivityThresholds: [InactivityIndicator]? = nil,
+    inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
     getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
@@ -96,7 +96,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     frequency: TimeInterval,
     duration: TimeInterval,
     logger: Logging,
-    inactivityThresholds: [InactivityIndicator]? = nil,
+    inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
     getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
@@ -226,7 +226,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   /// interrupt the user in the middle of a task.
   private func waitForInactivity() async throws {
     phase = .waiting
-    let listener = InactivityListener(
+    let listener = UserActivityMonitor(
       logger: logger,
       thresholds: inactivityThresholds,
       getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,

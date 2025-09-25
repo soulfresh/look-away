@@ -2,7 +2,7 @@ import AVFoundation
 import CoreMediaIO
 import Foundation
 
-class CameraListener {
+class CameraMonitor {
   enum ConnectedState {
     case connected
     case disconnected
@@ -55,7 +55,6 @@ class CameraListener {
   private var devices: [CameraInfo] = []
 
   /// The number of cameras currently capturing video.
-//  private var activeCameraCount: Int = 0
   var activeCameraCount: Int {
     devices.filter { $0.isRunning }.count
   }

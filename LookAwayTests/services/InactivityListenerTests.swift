@@ -6,16 +6,16 @@ import Testing
 
 class InactivityListenerTestContext {
   let clock: TestClock = TestClock()
-  let listener: InactivityListener<TestClock<Duration>>
+  let listener: UserActivityMonitor<TestClock<Duration>>
 
   init(
-    thresholds: [InactivityIndicator] = [],
+    thresholds: [ActivityThreshold] = [],
     getSecondsSinceLastUserInteraction: @escaping UserInteractionCallback = { _ in 10 },
     debug: Bool = false
   ) {
     let logger = Logger(enabled: debug)
 
-    listener = InactivityListener(
+    listener = UserActivityMonitor(
       logger: logger,
       thresholds: thresholds,
       getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
@@ -70,8 +70,8 @@ struct InactivityListenerTests {
     let spy = UserInteractionCallbackSpy()
     spy.interactionTime = 0
     let thresholds = [
-      InactivityIndicator(event: .keyUp, threshold: 5),
-      InactivityIndicator(event: .leftMouseUp, threshold: 10),
+      ActivityThreshold(event: .keyUp, threshold: 5),
+      ActivityThreshold(event: .leftMouseUp, threshold: 10),
     ]
     let test = InactivityListenerTestContext(
       thresholds: thresholds,

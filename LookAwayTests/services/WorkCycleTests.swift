@@ -31,8 +31,8 @@ class WorkCycleTestContext {
 
   init(
     initialInteraction: TimeInterval = 10,
-    inactivityThresholds: [InactivityIndicator] = [
-      InactivityIndicator(
+    inactivityThresholds: [ActivityThreshold] = [
+      ActivityThreshold(
         event: .keyUp,
         threshold: 10
       )
@@ -112,7 +112,7 @@ struct WorkCycleTests {
   func testWaitingPhase() async throws {
     let test = WorkCycleTestContext(
       initialInteraction: 5,
-      inactivityThresholds: [InactivityIndicator(event: .keyUp, threshold: 10)],
+      inactivityThresholds: [ActivityThreshold(event: .keyUp, threshold: 10)],
     )
     let clock = test.clock
     let breakInstance = test.brk

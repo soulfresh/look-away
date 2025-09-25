@@ -4,12 +4,12 @@ import Testing
 @testable import LookAway
 
 class Spy {
-  var calls: [SystemSleepListener.SleepState] = []
+  var calls: [SystemSleepMonitor.SleepState] = []
   var callCount: Int {
     calls.count
   }
 
-  func record(_ state: SystemSleepListener.SleepState) {
+  func record(_ state: SystemSleepMonitor.SleepState) {
     calls.append(state)
   }
 
@@ -49,12 +49,12 @@ class MockDistributedNotificationCenter: DistributedNotificationCenterProtocol {
 }
 
 struct SystemSleepListenerTestContext {
-  let listener: SystemSleepListener
+  let listener: SystemSleepMonitor
   let mockNotificationCenter: MockDistributedNotificationCenter
 
   init(debug: Bool = false) {
     let mockNC = MockDistributedNotificationCenter()
-    listener = SystemSleepListener(logger: Logger(enabled: debug), notificationCenter: mockNC)
+    listener = SystemSleepMonitor(logger: Logger(enabled: debug), notificationCenter: mockNC)
     mockNotificationCenter = mockNC
   }
 }

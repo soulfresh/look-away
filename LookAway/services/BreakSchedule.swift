@@ -47,7 +47,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   }
 
   /// Listener for system sleep/wake events.
-  private var sleepListener: SystemSleepListener
+  private var sleepListener: SystemSleepMonitor
   /// The last time that the system went to sleep.
   private var lastSleep: Date = Date()
 
@@ -65,7 +65,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.logger = logger
     self.schedule = _schedule
 
-    self.sleepListener = SystemSleepListener(
+    self.sleepListener = SystemSleepMonitor(
       logger: LogWrapper(
         logger: logger, label: "SleepListener"
       )
@@ -257,7 +257,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   }
 
   /// Handle changes in the system sleep state (screen locked, system sleep, etc).
-  private func onSleepStateChange(_ state: SystemSleepListener.SleepState) {
+  private func onSleepStateChange(_ state: SystemSleepMonitor.SleepState) {
     let now = Date()
 
     switch state {

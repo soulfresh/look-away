@@ -4,22 +4,22 @@ import Quartz
 typealias UserInteractionCallback = (_: CGEventType) -> TimeInterval
 
 /// Configures an event type that can be used to detect user inactivity.
-struct InactivityIndicator {
+struct ActivityThreshold {
   let event: CGEventType
   /// The length of time that it takes for this indicator to be considered inactive.
   let threshold: TimeInterval
 }
 
 /// Watches for user inactivity and notifies when the user has been inactive for the desired duration.
-class InactivityListener<ClockType: Clock<Duration>> {
+class UserActivityMonitor<ClockType: Clock<Duration>> {
   private let logger: Logging
   private let clock: ClockType
   private let getSecondsSinceLastUserInteraction: UserInteractionCallback
-  private let thresholds: [InactivityIndicator]
+  private let thresholds: [ActivityThreshold]
 
   init(
     logger: Logging,
-    thresholds: [InactivityIndicator]? = nil,
+    thresholds: [ActivityThreshold]? = nil,
     /// A callback that can be used to determine the number of seconds since the
     /// last user activity. Allows you to mock CGEventSource for testing.
     getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil,
@@ -27,11 +27,11 @@ class InactivityListener<ClockType: Clock<Duration>> {
   ) {
     self.logger = logger
     self.thresholds = thresholds ?? [
-      InactivityIndicator(event: .keyUp, threshold: 5),
+      ActivityThreshold(event: .keyUp, threshold: 5),
 //      InactivityIndicator(event: .mouseMoved, threshold: 5),
-      InactivityIndicator(event: .leftMouseUp, threshold: 4),
-      InactivityIndicator(event: .rightMouseUp, threshold: 4),
-      InactivityIndicator(event: .otherMouseUp, threshold: 4),
+      ActivityThreshold(event: .leftMouseUp, threshold: 4),
+      ActivityThreshold(event: .rightMouseUp, threshold: 4),
+      ActivityThreshold(event: .otherMouseUp, threshold: 4),
     ]
     self.getSecondsSinceLastUserInteraction =
       getSecondsSinceLastUserInteraction ?? { type in
@@ -44,7 +44,7 @@ class InactivityListener<ClockType: Clock<Duration>> {
   }
 
   struct InactivityResult {
-    let indicator: InactivityIndicator
+    let indicator: ActivityThreshold
     let lastActivity: TimeInterval
     let timeRemaining: TimeInterval
     let isInactive: Bool
