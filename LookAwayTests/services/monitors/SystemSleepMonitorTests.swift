@@ -48,7 +48,7 @@ class MockDistributedNotificationCenter: DistributedNotificationCenterProtocol {
   }
 }
 
-struct SystemSleepListenerTestContext {
+struct SystemSleepMonitorTestContext {
   let listener: SystemSleepMonitor
   let mockNotificationCenter: MockDistributedNotificationCenter
 
@@ -59,11 +59,11 @@ struct SystemSleepListenerTestContext {
   }
 }
 
-struct SystemSleepListenerTests {
+struct SystemSleepMonitorTests {
 
   @Test("should emit sleep/awake events when the screen locks")
   func testScreenLock() async throws {
-    let test = SystemSleepListenerTestContext()
+    let test = SystemSleepMonitorTestContext()
 
     let spy = Spy()
     test.listener.startListening(callback: spy.record)
@@ -98,7 +98,7 @@ struct SystemSleepListenerTests {
 
   @Test("should emit sleep/awake events when the camera is in use")
   func testCameraInUse() async throws {
-    let test = SystemSleepListenerTestContext()
+    let test = SystemSleepMonitorTestContext()
 
     let spy = Spy()
     test.listener.startListening(callback: spy.record)
@@ -137,7 +137,7 @@ struct SystemSleepListenerTests {
   
   @Test("should correctly emit sleep/awake events if the user has multiple cameras")
   func testMultipleCameraSupport() async throws {
-    let test = SystemSleepListenerTestContext()
+    let test = SystemSleepMonitorTestContext()
     let spy = Spy()
     test.listener.startListening(callback: spy.record)
 
@@ -168,7 +168,7 @@ struct SystemSleepListenerTests {
   
   @Test("should not emit duplicate sleep/awake events")
   func testDuplicateNotifications() async throws {
-    let test = SystemSleepListenerTestContext()
+    let test = SystemSleepMonitorTestContext()
     let spy = Spy()
     test.listener.startListening(callback: spy.record)
 

@@ -4,7 +4,7 @@ import Testing
 
 @testable import LookAway
 
-class InactivityListenerTestContext {
+class UserActivityMonitorTestContext {
   let clock: TestClock = TestClock()
   let listener: UserActivityMonitor<TestClock<Duration>>
 
@@ -28,7 +28,7 @@ class InactivityListenerTestContext {
   }
 }
 
-class UserInteractionCallbackSpy {
+class UserActivityMonitorCallbackSpy {
   private(set) var calls: [CGEventType] = []
   var interactionTime: TimeInterval = 0
   
@@ -46,12 +46,12 @@ class UserInteractionCallbackSpy {
   }
 }
 
-struct InactivityListenerTests {
+struct UserActivityMonitorTests {
   @Test("Should skip inactivity tracking if no thresholds are configured.")
   func skipInactivityTracking() async throws {
-    let spy = UserInteractionCallbackSpy()
+    let spy = UserActivityMonitorCallbackSpy()
 
-    let test = InactivityListenerTestContext(
+    let test = UserActivityMonitorTestContext(
       thresholds: [],
       getSecondsSinceLastUserInteraction: spy.callback,
       debug: true
@@ -67,13 +67,13 @@ struct InactivityListenerTests {
   @Test("Should wait for inactivity before returning.")
   func waitForInactivity() async throws {
     // Create an inactivity listener with a couple thresholds.
-    let spy = UserInteractionCallbackSpy()
+    let spy = UserActivityMonitorCallbackSpy()
     spy.interactionTime = 0
     let thresholds = [
       ActivityThreshold(event: .keyUp, threshold: 5),
       ActivityThreshold(event: .leftMouseUp, threshold: 10),
     ]
-    let test = InactivityListenerTestContext(
+    let test = UserActivityMonitorTestContext(
       thresholds: thresholds,
       getSecondsSinceLastUserInteraction: spy.callback,
       debug: true
