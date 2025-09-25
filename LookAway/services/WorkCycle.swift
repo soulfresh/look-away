@@ -180,7 +180,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
 
   /// Pause the break wherever we are in the cycle.
   func pause() {
-    logger.log("Pausing break timer task")
+    logger.log("Pausing")
     // Cancelling the current task will retain the current time remaining value
     // in the current phase so we can easily resume later.
     cancel()
@@ -188,7 +188,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
 
   /// Resume the break from where it left off.
   func resume() {
-    logger.log("Resuming break timer task")
+    logger.log("Resuming")
     // If we are already running, do nothing.
     guard !isRunning else { return }
 
@@ -208,7 +208,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
 
   /// Reset the break to its initial state. This will cancel the timer and reset all state.
   func reset() {
-    logger.log("Resetting this Break")
+    logger.log("Resetting this WorkCycle")
     cancel()
     phase = .idle
   }

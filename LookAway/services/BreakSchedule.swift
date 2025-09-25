@@ -46,6 +46,11 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     schedule.getElement(at: index)
   }
 
+  /// Listener for system sleep/wake events.
+  private var sleepListener: SystemSleepListener
+  /// The last time that the system went to sleep.
+  private var lastSleep: Date = Date()
+
   /// Cancellables that will be cleaned up when AppState is destroyed.
   private var cancellables = Set<AnyCancellable>()
 
@@ -60,7 +65,21 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.logger = logger
     self.schedule = _schedule
 
+    self.sleepListener = SystemSleepListener(
+      logger: LogWrapper(
+        logger: logger, label: "SleepListener"
+      )
+    )
+
+    self.sleepListener.startListening { state in
+      self.onSleepStateChange(state)
+    }
+
     logger.log("Initialized with \(_schedule.count) work cycles.")
+  }
+
+  deinit {
+    self.sleepListener.stopListening()
   }
 
   /// Set a new schedule of work cycles. This will fully reset the state and
@@ -71,14 +90,21 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.schedule = schedule
 
     // Reset trackers:
+    reset()
+    
+    printSchedule()
+  }
+  
+  /// Reset the state to start from the beginning. You will need to call start()
+  /// to begin the first work cycle.
+  func reset() {
+    logger.log("Resetting the break schedule state.")
     count = 0  // must be reset in order to start at the beginning of the schedule
     skipped = 0  // must be reset because count was reset
     delayed = 0  // will be reset in startNextWorkCycle anyway
     remainingTime = 0  // will be reset once the first cycle phase changes
     phaseLength = 0  // will be reset once the first cycle phase changes
     isBlocking = false  // will be reset once the first cycle phase changes
-
-    printSchedule()
   }
 
   /// Print the current schedule to the console.
@@ -227,6 +253,38 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
       Task {
         self.startNextWorkCycle()
       }
+    }
+  }
+
+  /// Handle changes in the system sleep state (screen locked, system sleep, etc).
+  private func onSleepStateChange(_ state: SystemSleepListener.SleepState) {
+    let now = Date()
+
+    switch state {
+    case .awake:
+      logger.log("System woke up from sleep.")
+      let calendar = Calendar.current
+      let isBeforeToday =
+        calendar.compare(
+          lastSleep,
+          to: now,
+          toGranularity: .day
+        ) == .orderedAscending
+      if isBeforeToday {
+        logger.log("Different day: resetting the work cycle.")
+        reset()
+        start()
+      } else {
+        logger.log("Same day: continuing the last work cycle.")
+        // TODO Start from the beginning of the break schedule or
+        // restart the current work cycle rather than picking back up
+        // in the middle of a work cycle
+        resume()
+      }
+    case .sleeping:
+      logger.log("System is going to sleep. Pausing the work cycle.")
+      lastSleep = now
+      pause()
     }
   }
 
