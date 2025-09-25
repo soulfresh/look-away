@@ -82,6 +82,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     logger: Logging,
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
+    // TODO Remove this and update ActivityThreshold to include a callback
     getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
   ) {
     self.workLength = frequency
@@ -225,12 +226,14 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   /// Wait for the user to stop interacting with the system so we are less likely to
   /// interrupt the user in the middle of a task.
   private func waitForInactivity() async throws {
+    // Make sure we're in the "waiting" phase
     phase = .waiting
-    let listener = UserActivityMonitor(
-      logger: logger,
-      thresholds: inactivityThresholds,
-      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
-      clock: clock
+    
+    let listener = InactivityListener(
+      logger: LogWrapper(logger: logger, label: "Inactivity"),
+      inactivityThresholds: inactivityThresholds,
+//      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
+//      clock: clock
     )
     try await listener.waitForInactivity()
   }

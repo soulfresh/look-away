@@ -19,25 +19,25 @@ class CameraMonitor {
     let category: String
     let type: String
     let modelID: String
-    
+
     var identifier: String {
       return "\(name)[\(id)]"
     }
-    
+
     var description: String {
       return """
-      [Camera \(id)] {
-        name: \(name),
-        isRunning: \(isRunning),
-        uniqueID: \(uniqueID),
-        manufacturer: \(manufacturer),
-        isVirtual: \(isVirtual),
-        creator: \(creator),
-        category: \(category),
-        type: \(type),
-        modelID: \(modelID)
-      }
-      """
+        [Camera \(id)] {
+          name: \(name),
+          isRunning: \(isRunning),
+          uniqueID: \(uniqueID),
+          manufacturer: \(manufacturer),
+          isVirtual: \(isVirtual),
+          creator: \(creator),
+          category: \(category),
+          type: \(type),
+          modelID: \(modelID)
+        }
+        """
     }
   }
 
@@ -50,8 +50,8 @@ class CameraMonitor {
   private var propertyListeners: [CMIODeviceID: CMIOObjectPropertyListenerBlock] = [:]
 
   /// The last emitted connection state.
-  private var lastState: ConnectedState = .disconnected
-  
+  private var lastState: ConnectedState? = nil
+
   private var devices: [CameraInfo] = []
 
   /// The number of cameras currently capturing video.
@@ -67,6 +67,9 @@ class CameraMonitor {
     logger: Logging,
   ) {
     self.logger = logger
+    // Get the initial camera state so we can check it synchronously
+    // if we need to.
+    refreshDevices()
   }
 
   deinit {
@@ -144,17 +147,30 @@ class CameraMonitor {
     return cameraInfos
   }
 
+  /// Refresh the list of known camera devices.
+  private func refreshDevices() {
+    devices = getCameraDevices()
+  }
+
   /// Start listening to the "isRunningSomewhere" property on all camera devices
   /// and emit the initial camera connection state.
   func startListening(callback: @escaping (ConnectedState) -> Void) {
     // TODO What happens if a camera is connected after we start listening? We
     // currently would not add a new property listener for it.
-    logger.log("initialize cameras")
+    logger.log("start camera monitoring")
     stopListening()
     self.callback = callback
-    
-    devices = getCameraDevices()
 
+    logger.log("refreshing device list")
+    // We don't know how long it's been since we created the CameraMonitor
+    // so refresh the device list.
+    refreshDevices()
+    // Now listen for changes to the known camera devices.
+    // TODO There is one limitation with our current approach: if a new
+    // camera is connected after we start listening, we will not add a
+    // property listener for it. We should probably listen for device
+    // additions/removals and update our list of devices and property
+    // listeners accordingly.
     registerForCameraNotifications(cameras: devices)
   }
 
@@ -170,12 +186,18 @@ class CameraMonitor {
 
     // Add a property listener for each device.
     for device in cameras {
-      logger.log("Adding property listener for device '\(device.identifier)'")
+      logger.log("Registering for '\(device.identifier)' notifications")
 
       let listenerBlock: CMIOObjectPropertyListenerBlock = {
         (inNumberAddresses, inAddresses) in
-        self.logger.log("Property listener triggered for device '\(device.identifier)'")
+        self.logger.log("Notification received for '\(device.identifier)'")
 
+        // TODO We're forcing the update onto the main thread but it's
+        // possible that `CameraMonitor` will not be running on the main
+        // thread. How should we properly handle threading here?
+        // - custom dispatch queue?
+        // - @MainActor for CameraMonitor?
+        // - other mechanism?
         DispatchQueue.main.async {
           // TODO Instead of enumerating all devices, just update the
           // state of this one device?
@@ -239,12 +261,12 @@ class CameraMonitor {
         DispatchQueue.main,
         listenerBlock
       )
-      logger.log("Removed property listener for device \(deviceID)")
+      logger.log("Disconnecting from device \(deviceID)")
     }
     propertyListeners = [:]
-    lastState = .disconnected
+    lastState = nil
   }
-  
+
   private func getDeviceProperty<T>(
     deviceID: CMIODeviceID,
     propertySelector: CMIOObjectPropertySelector,
@@ -373,5 +395,5 @@ class CameraMonitor {
     }
     return "Unknown"
   }
-  
+
 }
