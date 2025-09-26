@@ -1,25 +1,27 @@
 import SwiftUI
 
+struct MeshPoint: Identifiable {
+  let id = UUID()
+  var position: UnitPoint
+  var duration: Double
+}
+
 struct AnimatedGradient: View {
   @Binding var animateMesh: Bool
   @Binding var animateColors: Bool
   @Binding var showDebugPoints: Bool
   @Binding var baseColor: Color
   @Binding var colorRangeDegrees: Double
-  @State private var meshPoints: [UnitPoint] = []
+  @State private var meshPoints: [MeshPoint] = []
   @State private var meshColors: [Color] = []
-  @State private var timer: Timer? = nil
+  @State private var timers: [UUID: DispatchWorkItem] = [:]
   let rows: Int = 4
-  let cols: Int = 4
-  let animationDuration: Double = 2.5
+  let cols: Int = 3
+  let minDuration: Double = 6.0
+  let maxDuration: Double = 8.0
   let maxOffset: Double = 0.20
   // Minimum distance in pixels between points
   let minPointDistance: CGFloat = 32
-  // Disable cluster for more regular movement
-  let cluster = false
-  let colorPalette: [Color] = [
-    .yellow, .orange, .pink, .purple, .blue, .indigo, .mint, .red,
-  ]
 
   func randomUnitPoint() -> UnitPoint {
     UnitPoint(x: Double.random(in: 0...1), y: Double.random(in: 0...1))
@@ -76,193 +78,249 @@ struct AnimatedGradient: View {
     (0..<(rows * cols)).map { _ in randomColor() }
   }
 
-  func initialMeshPoints() -> [UnitPoint] {
-    var points: [UnitPoint] = []
+  // Helper to create a random duration for a point
+  func randomDuration() -> Double {
+    Double.random(in: minDuration...maxDuration)
+  }
+
+  // Helper to create initial mesh points with random durations
+  func initialMeshPoints() -> [MeshPoint] {
+    var points: [MeshPoint] = []
     for row in 0..<rows {
       for col in 0..<cols {
         let x = Double(col) / Double(cols - 1)
         let y = Double(row) / Double(rows - 1)
-        points.append(UnitPoint(x: x, y: y))
+        points.append(MeshPoint(position: UnitPoint(x: x, y: y), duration: randomDuration()))
       }
     }
     return points
   }
 
-  func randomizeMeshPoints(viewSize: CGSize) -> [UnitPoint] {
+  // Helper to convert [MeshPoint] to [SIMD2<Float>]
+  func meshPointsToSIMD(_ points: [MeshPoint]) -> [SIMD2<Float>] {
+    points.map { SIMD2<Float>(Float($0.position.x), Float($0.position.y)) }
+  }
+
+  // Helper to randomize a single mesh point's position
+  func randomizeMeshPoint(_ meshPoint: MeshPoint, index: Int, viewSize: CGSize, currentPoints: [MeshPoint]) -> MeshPoint {
+    let row = index / cols
+    let col = index % cols
     // First, generate the base grid
-    var baseGrid: [[UnitPoint]] = []
-    for row in 0..<rows {
-      var rowPoints: [UnitPoint] = []
-      for col in 0..<cols {
-        let x = Double(col) / Double(cols - 1)
-        let y = Double(row) / Double(rows - 1)
-        rowPoints.append(UnitPoint(x: x, y: y))
-      }
-      baseGrid.append(rowPoints)
+    let base = UnitPoint(x: Double(col) / Double(cols - 1), y: Double(row) / Double(rows - 1))
+    let isTop = row == 0
+    let isBottom = row == rows - 1
+    let isLeft = col == 0
+    let isRight = col == cols - 1
+    let isCorner = (isTop || isBottom) && (isLeft || isRight)
+    if isCorner {
+      return MeshPoint(position: base, duration: randomDuration())
     }
-    // Prepare a 2D array for the new points
-    var newGrid = baseGrid
-    // Helper to check min distance in pixel space
-    func isFarEnough(_ candidate: UnitPoint, _ placed: [UnitPoint]) -> Bool {
-      let cx = CGFloat(candidate.x) * viewSize.width
-      let cy = CGFloat(candidate.y) * viewSize.height
-      for pt in placed {
-        let px = CGFloat(pt.x) * viewSize.width
-        let py = CGFloat(pt.y) * viewSize.height
-        let dist = hypot(cx - px, cy - py)
-        if dist < minPointDistance { return false }
-      }
-      return true
+    var minX = base.x, maxX = base.x, minY = base.y, maxY = base.y
+    var fixX = false, fixY = false
+    if isTop {
+      let prevX = currentPoints[safe: index - 1]?.position.x ?? base.x
+      let nextX = currentPoints[safe: index + 1]?.position.x ?? base.x
+      minX = max(prevX, base.x - maxOffset)
+      maxX = min(nextX, base.x + maxOffset)
+      minY = 0; maxY = 0; fixY = true
+    } else if isBottom {
+      let prevX = currentPoints[safe: index - 1]?.position.x ?? base.x
+      let nextX = currentPoints[safe: index + 1]?.position.x ?? base.x
+      minX = max(prevX, base.x - maxOffset)
+      maxX = min(nextX, base.x + maxOffset)
+      minY = 1; maxY = 1; fixY = true
+    } else if isLeft {
+      let prevY = currentPoints[safe: index - cols]?.position.y ?? base.y
+      let nextY = currentPoints[safe: index + cols]?.position.y ?? base.y
+      minY = max(prevY, base.y - maxOffset)
+      maxY = min(nextY, base.y + maxOffset)
+      minX = 0; maxX = 0; fixX = true
+    } else if isRight {
+      let prevY = currentPoints[safe: index - cols]?.position.y ?? base.y
+      let nextY = currentPoints[safe: index + cols]?.position.y ?? base.y
+      minY = max(prevY, base.y - maxOffset)
+      maxY = min(nextY, base.y + maxOffset)
+      minX = 1; maxX = 1; fixX = true
+    } else {
+      let minXNeighbor = currentPoints[safe: index - 1]?.position.x ?? base.x
+      let maxXNeighbor = currentPoints[safe: index + 1]?.position.x ?? base.x
+      let minYNeighbor = currentPoints[safe: index - cols]?.position.y ?? base.y
+      let maxYNeighbor = currentPoints[safe: index + cols]?.position.y ?? base.y
+      minX = max(minXNeighbor, base.x - maxOffset)
+      maxX = min(maxXNeighbor, base.x + maxOffset)
+      minY = max(minYNeighbor, base.y - maxOffset)
+      maxY = min(maxYNeighbor, base.y + maxOffset)
     }
-    // --- Top edge (row 0, col 1..<cols-1) ---
-    for col in 1..<(cols - 1) {
-      let prevX = newGrid[0][col - 1].x
-      let nextX = baseGrid[0][col + 1].x
-      let baseX = baseGrid[0][col].x
-      let allowedMinX = max(prevX, baseX - maxOffset)
-      let allowedMaxX = min(nextX, baseX + maxOffset)
-      var x = baseX
-      var attempts = 0
-      repeat {
-        x = Double.random(in: allowedMinX...allowedMaxX)
-        newGrid[0][col] = UnitPoint(x: x, y: 0)
-        attempts += 1
-      } while !isFarEnough(newGrid[0][col], Array(newGrid.flatMap { $0 }.prefix(0 * cols + col)))
-        && attempts < 20
-    }
-    // --- Bottom edge (row rows-1, col 1..<cols-1) ---
-    for col in 1..<(cols - 1) {
-      let prevX = newGrid[rows - 1][col - 1].x
-      let nextX = baseGrid[rows - 1][col + 1].x
-      let baseX = baseGrid[rows - 1][col].x
-      let allowedMinX = max(prevX, baseX - maxOffset)
-      let allowedMaxX = min(nextX, baseX + maxOffset)
-      var x = baseX
-      var attempts = 0
-      repeat {
-        x = Double.random(in: allowedMinX...allowedMaxX)
-        newGrid[rows - 1][col] = UnitPoint(x: x, y: 1)
-        attempts += 1
-      } while !isFarEnough(
-        newGrid[rows - 1][col], Array(newGrid.flatMap { $0 }.prefix((rows - 1) * cols + col)))
-        && attempts < 20
-    }
-    // --- Left edge (col 0, row 1..<rows-1) ---
-    for row in 1..<(rows - 1) {
-      let prevY = newGrid[row - 1][0].y
-      let nextY = baseGrid[row + 1][0].y
-      let baseY = baseGrid[row][0].y
-      let allowedMinY = max(prevY, baseY - maxOffset)
-      let allowedMaxY = min(nextY, baseY + maxOffset)
-      var y = baseY
-      var attempts = 0
-      repeat {
-        y = Double.random(in: allowedMinY...allowedMaxY)
-        newGrid[row][0] = UnitPoint(x: 0, y: y)
-        attempts += 1
-      } while !isFarEnough(newGrid[row][0], Array(newGrid.flatMap { $0 }.prefix(row * cols)))
-        && attempts < 20
-    }
-    // --- Right edge (col cols-1, row 1..<rows-1) ---
-    for row in 1..<(rows - 1) {
-      let prevY = newGrid[row - 1][cols - 1].y
-      let nextY = baseGrid[row + 1][cols - 1].y
-      let baseY = baseGrid[row][cols - 1].y
-      let allowedMinY = max(prevY, baseY - maxOffset)
-      let allowedMaxY = min(nextY, baseY + maxOffset)
-      var y = baseY
-      var attempts = 0
-      repeat {
-        y = Double.random(in: allowedMinY...allowedMaxY)
-        newGrid[row][cols - 1] = UnitPoint(x: 1, y: y)
-        attempts += 1
-      } while !isFarEnough(
-        newGrid[row][cols - 1], Array(newGrid.flatMap { $0 }.prefix(row * cols + (cols - 1))))
-        && attempts < 20
-    }
-    // --- Interior points ---
-    for row in 1..<(rows - 1) {
-      for col in 1..<(cols - 1) {
-        let minX = newGrid[row][col - 1].x
-        let maxX = newGrid[row][col + 1].x
-        let minY = newGrid[row - 1][col].y
-        let maxY = newGrid[row + 1][col].y
-        let baseX = baseGrid[row][col].x
-        let baseY = baseGrid[row][col].y
-        let allowedMinX = max(minX, baseX - maxOffset)
-        let allowedMaxX = min(maxX, baseX + maxOffset)
-        let allowedMinY = max(minY, baseY - maxOffset)
-        let allowedMaxY = min(maxY, baseY + maxOffset)
-        var x = baseX
-        var y = baseY
-        var attempts = 0
-        repeat {
-          x = Double.random(in: allowedMinX...allowedMaxX)
-          y = Double.random(in: allowedMinY...allowedMaxY)
-          newGrid[row][col] = UnitPoint(x: x, y: y)
-          attempts += 1
-        } while !isFarEnough(
-          newGrid[row][col], Array(newGrid.flatMap { $0 }.prefix(row * cols + col)))
-          && attempts < 20
-      }
-    }
-    // Flatten newGrid to row-major order
-    return newGrid.flatMap { $0 }
+    // Use isFarEnough for collision avoidance
+    let placed = currentPoints.prefix(index).map { $0.position }
+    let newPos = randomizePoint(
+      base: base,
+      minX: minX, maxX: maxX,
+      minY: minY, maxY: maxY,
+      placed: placed,
+      viewSize: viewSize,
+      fixX: fixX, fixY: fixY
+    )
+    return MeshPoint(position: newPos, duration: randomDuration())
   }
-  func unitPointsToSIMD(_ points: [UnitPoint]) -> [SIMD2<Float>] {
-    points.map { SIMD2<Float>(Float($0.x), Float($0.y)) }
+
+  // Helper to randomize a point with constraints
+  private func randomizePoint(
+    base: UnitPoint,
+    minX: Double, maxX: Double,
+    minY: Double, maxY: Double,
+    placed: [UnitPoint],
+    viewSize: CGSize,
+    fixX: Bool = false, fixY: Bool = false
+  ) -> UnitPoint {
+    var x = base.x
+    var y = base.y
+    var attempts = 0
+    repeat {
+      if !fixX { x = Double.random(in: minX...maxX) }
+      if !fixY { y = Double.random(in: minY...maxY) }
+      let candidate = UnitPoint(x: x, y: y)
+      if isFarEnough(candidate, placed, viewSize: viewSize) {
+        return candidate
+      }
+      attempts += 1
+    } while attempts < 20
+    return UnitPoint(x: x, y: y)
   }
+
+  // Helper to check min distance in pixel space
+  private func isFarEnough(_ candidate: UnitPoint, _ placed: [UnitPoint], viewSize: CGSize) -> Bool {
+    let cx = CGFloat(candidate.x) * viewSize.width
+    let cy = CGFloat(candidate.y) * viewSize.height
+    for pt in placed {
+      let px = CGFloat(pt.x) * viewSize.width
+      let py = CGFloat(pt.y) * viewSize.height
+      let dist = hypot(cx - px, cy - py)
+      if dist < minPointDistance { return false }
+    }
+    return true
+  }
+
+  // Helper to schedule per-point animation (unified for mesh and color)
+  func scheduleAnimation(for index: Int, geo: GeometryProxy) {
+    let meshPoint = meshPoints[index]
+    let duration = meshPoint.duration
+    let id = meshPoint.id
+    let workItem = DispatchWorkItem {
+      var newPoint = meshPoint
+      var newColor: Color? = nil
+      if self.animateMesh {
+        newPoint = self.randomizeMeshPoint(meshPoint, index: index, viewSize: geo.size, currentPoints: self.meshPoints)
+      } else {
+        // Still randomize duration for next cycle
+        newPoint.duration = self.randomDuration()
+      }
+      if self.animateColors {
+        newColor = self.randomColor()
+      }
+      DispatchQueue.main.async {
+        withAnimation(.easeInOut(duration: duration)) {
+          if self.animateMesh {
+            self.meshPoints[index] = newPoint
+          } else {
+            // Only update duration
+            self.meshPoints[index].duration = newPoint.duration
+          }
+          if let color = newColor, self.meshColors.indices.contains(index) {
+            self.meshColors[index] = color
+          }
+        }
+        // Reschedule for next animation
+        self.scheduleAnimation(for: index, geo: geo)
+      }
+    }
+    timers[id]?.cancel()
+    timers[id] = workItem
+    DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+  }
+
+  // Helper to start all animations
+  func startAllAnimations(geo: GeometryProxy) {
+    // Ensure meshColors is always the correct length
+    if meshColors.count != meshPoints.count {
+      meshColors = initialMeshColors()
+    }
+    for idx in meshPoints.indices {
+      scheduleAnimation(for: idx, geo: geo)
+    }
+  }
+
+  // Helper to stop all animations
+  func stopAllAnimations() {
+    for (_, workItem) in timers {
+      workItem.cancel()
+    }
+    timers.removeAll()
+  }
+
   var body: some View {
     GeometryReader { geo in
       ZStack {
         MeshGradient(
           width: cols,
           height: rows,
-          points: unitPointsToSIMD(meshPoints.isEmpty ? initialMeshPoints() : meshPoints),
+          points: meshPointsToSIMD(meshPoints.isEmpty ? initialMeshPoints() : meshPoints),
           colors: meshColors.isEmpty ? initialMeshColors() : meshColors
         )
+        .animation(.easeInOut(duration: 1.0), value: meshColors)
         // Overlay control points
         if showDebugPoints {
           let points = meshPoints.isEmpty ? initialMeshPoints() : meshPoints
           let colors = meshColors.isEmpty ? initialMeshColors() : meshColors
-          ForEach(Array(points.enumerated()), id: \.offset) { idx, pt in
+          ForEach(Array(points.enumerated()), id: \.offset) { idx, meshPoint in
             let color = colors[idx]
             DebugCircle(color: color, index: idx, size: 16)
-              .position(x: pt.x * geo.size.width, y: pt.y * geo.size.height)
+              .position(x: meshPoint.position.x * geo.size.width, y: meshPoint.position.y * geo.size.height)
           }
         }
       }
-      .animation(animateMesh ? .easeInOut(duration: animationDuration) : nil, value: meshPoints)
-      .animation(animateColors ? .easeInOut(duration: animationDuration) : nil, value: meshColors)
       .ignoresSafeArea()
       .onAppear {
         meshPoints = initialMeshPoints()
         meshColors = initialMeshColors()
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: animationDuration, repeats: true) { _ in
-          withAnimation(.easeInOut(duration: animationDuration)) {
-            if animateMesh {
-              meshPoints = randomizeMeshPoints(viewSize: geo.size)
-            }
-            if animateColors {
-              meshColors = initialMeshColors()
-            }
-          }
+        stopAllAnimations()
+        if animateMesh || animateColors {
+          startAllAnimations(geo: geo)
         }
       }
       .onDisappear {
-        timer?.invalidate()
+        stopAllAnimations()
       }
-      .onChange(of: animateMesh) { _ in
+      .onChange(of: animateMesh) { _, _ in
+        stopAllAnimations()
         meshPoints = initialMeshPoints()
+        meshColors = initialMeshColors()
+        if animateMesh || animateColors {
+          startAllAnimations(geo: geo)
+        }
       }
-      .onChange(of: baseColor) { _ in
+      .onChange(of: animateColors) { _, _ in
+        stopAllAnimations()
+        meshPoints = initialMeshPoints()
+        meshColors = initialMeshColors()
+        if animateMesh || animateColors {
+          startAllAnimations(geo: geo)
+        }
+      }
+      .onChange(of: baseColor) { _, _ in
         meshColors = initialMeshColors()
       }
-      .onChange(of: colorRangeDegrees) { _ in
+      .onChange(of: colorRangeDegrees) { _, _ in
         meshColors = initialMeshColors()
       }
     }
+  }
+}
+
+// Helper for safe array access
+extension Array {
+  subscript(safe index: Int) -> Element? {
+    (startIndex..<endIndex).contains(index) ? self[index] : nil
   }
 }
 
@@ -322,12 +380,12 @@ struct AnimatedGradient_Previews: PreviewProvider {
   struct PreviewWrapper: View {
     @State private var animateMesh: Bool = true
     @State private var animateColors: Bool = true
-    @State private var showDebugPoints: Bool = true
+    @State private var showDebugPoints: Bool = false
     @State private var baseColor: Color = .blue
-    @State private var colorRangeDegrees: Double = 20
+    @State private var colorRangeDegrees: Double = 10
 
     var body: some View {
-      ZStack {
+      VStack {
         AnimatedGradient(// AnimatedGradient no longer needs to know about controls
           animateMesh: $animateMesh,
           animateColors: $animateColors,
@@ -336,7 +394,6 @@ struct AnimatedGradient_Previews: PreviewProvider {
           colorRangeDegrees: $colorRangeDegrees
         )
         VStack {
-          Spacer()
           MeshGradientControls(
             animateMesh: $animateMesh,
             animateColors: $animateColors,
@@ -345,7 +402,6 @@ struct AnimatedGradient_Previews: PreviewProvider {
             colorRangeDegrees: $colorRangeDegrees
           )
         }
-        .padding()
       }
     }
   }
