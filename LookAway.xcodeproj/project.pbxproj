@@ -10,6 +10,7 @@
 		635159EB2E831A2000E3CF71 /* LookAway.icon in Resources */ = {isa = PBXBuildFile; fileRef = 635159EA2E831A2000E3CF71 /* LookAway.icon */; };
 		63A90D532E4691B700096003 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 63A90D522E4691B700096003 /* KeyboardShortcuts */; };
 		63D122AD2E3827BB00DAEFF4 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 63D122AC2E3827BB00DAEFF4 /* Clocks */; };
+		63F564562E87266E0046CD27 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 63F564552E87266E0046CD27 /* Clocks */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +75,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				63A90D532E4691B700096003 /* KeyboardShortcuts in Frameworks */,
+				63F564562E87266E0046CD27 /* Clocks in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -146,6 +148,7 @@
 			name = LookAway;
 			packageProductDependencies = (
 				63A90D522E4691B700096003 /* KeyboardShortcuts */,
+				63F564552E87266E0046CD27 /* Clocks */,
 			);
 			productName = LookAway;
 			productReference = 638B05AF2DEA3D440052CFD2 /* LookAway.app */;
@@ -477,7 +480,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.atomdance.LookAway;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -521,7 +524,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.atomdance.LookAway;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -665,6 +668,11 @@
 			productName = KeyboardShortcuts;
 		};
 		63D122AC2E3827BB00DAEFF4 /* Clocks */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 63D122AB2E3827BB00DAEFF4 /* XCRemoteSwiftPackageReference "swift-clocks" */;
+			productName = Clocks;
+		};
+		63F564552E87266E0046CD27 /* Clocks */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 63D122AB2E3827BB00DAEFF4 /* XCRemoteSwiftPackageReference "swift-clocks" */;
 			productName = Clocks;

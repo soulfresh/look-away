@@ -92,7 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     storage = Storage(
       logger: LogWrapper(logger: logger, label: "Storage".cyan()),
       // Whether to load the debug schedule
-      debug: true
+      debug: false
     )
 
     let config = storage.loadSchedule()
