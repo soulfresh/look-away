@@ -1,24 +1,29 @@
 import Foundation
+import Clocks
 
-class InactivityListener {
+class InactivityListener<ClockType: Clock<Duration>> {
   private let logger: Logging
   private var cameraIsActive: Bool
-  private let cameraMonitor: CameraMonitor
-  private let userActivityMonitor: UserActivityMonitor<ContinuousClock>
+  private let cameraMonitor: CameraActivityMonitor
+  private let userActivityMonitor: UserActivityMonitor<ClockType>
 
   init(
     logger: Logging,
     inactivityThresholds: [ActivityThreshold]? = nil,
+    clock: ClockType? = nil,
+    cameraProvider: DeviceProviderProtocol? = nil,
   ) {
     self.logger = logger
-    self.cameraMonitor = CameraMonitor(
+    self.cameraMonitor = CameraActivityMonitor(
       logger: LogWrapper(
         logger: logger, label: "Camera"
-      )
+      ),
+      deviceProvider: cameraProvider,
     )
-    self.userActivityMonitor = UserActivityMonitor<ContinuousClock>(
+    self.userActivityMonitor = UserActivityMonitor<ClockType>(
       logger: LogWrapper(logger: logger, label: "UserActivity"),
       thresholds: inactivityThresholds,
+      clock: clock
     )
     self.cameraIsActive = cameraMonitor.isConnected
   }

@@ -14,9 +14,29 @@ let INACTIVITY_LENGTH: TimeInterval = 300
 class BreakScheduleTestContext {
   let clock: BreakClock = BreakClock()
   let schedule: BreakSchedule<TestClock<Duration>>
+  let cameraProvider: MockCameraDeviceProvider
 
   init(debug: Bool = false) {
     let logger = Logger(enabled: debug)
+
+    let cameraProvider = MockCameraDeviceProvider(
+      devices: [
+        CameraActivityMonitor
+          .CameraInfo(
+            id: 0,
+            uniqueID: "mock-uid-0",
+            name: "Mock Camera",
+            manufacturer: "Mock Manufacturer",
+            isRunning: false,
+            isVirtual: false,
+            creator: "Mock",
+            category: "Camera",
+            type: "USB",
+            modelID: "MockModel"
+          )
+      ]
+    )
+    self.cameraProvider = cameraProvider
 
     schedule = BreakSchedule(
       schedule: [
@@ -26,12 +46,13 @@ class BreakScheduleTestContext {
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 0"),
           inactivityThresholds: [
             ActivityThreshold(
-              event: .keyUp,
-              threshold: INACTIVITY_LENGTH
+              name: "keyUp",
+              threshold: INACTIVITY_LENGTH,
+              callback: { INACTIVITY_LENGTH + 1 }
             )
           ],
           clock: clock.clock,
-          getSecondsSinceLastUserInteraction: { _ in INACTIVITY_LENGTH + 1 }
+          cameraProvider: cameraProvider,
         ),
         WorkCycle(
           frequency: WORK_2,
@@ -39,12 +60,13 @@ class BreakScheduleTestContext {
           logger: LogWrapper(logger: logger, label: "Test WorkCycle 1"),
           inactivityThresholds: [
             ActivityThreshold(
-              event: .keyUp,
-              threshold: INACTIVITY_LENGTH
+              name: "keyUp",
+              threshold: INACTIVITY_LENGTH,
+              callback: { INACTIVITY_LENGTH * 2 }
             )
           ],
           clock: clock.clock,
-          getSecondsSinceLastUserInteraction: { _ in INACTIVITY_LENGTH * 2 }
+          cameraProvider: cameraProvider,
         ),
       ],
       logger: LogWrapper(logger: logger, label: "Test schedule"),
@@ -148,8 +170,8 @@ struct BreakScheduleTests {
     await context.afterEach()
   }
 
-  @Test("Should be able to start working when in the middle of a break.")
-  func testStartWorking() async {
+  @Test("Should be able to skip to the next work cycle when in the middle of a break.")
+  func testSkip() async {
     let context = BreakScheduleTestContext()
     let clock = context.clock
     let schedule = context.schedule
@@ -204,6 +226,75 @@ struct BreakScheduleTests {
     #expect(schedule.completed == 0)
 
     await context.afterEach()
+  }
+
+  @Test("should be able to restart the current work cycle from the beginning.")
+  func testRestartWorkCycle() async {
+    let test = BreakScheduleTestContext()
+    test.schedule.start()
+    
+    // Start in the working phase
+    await test.clock.tick()
+    #expect(test.schedule.isBlocking == false)
+    #expect(test.schedule.remainingTime == WORK_1)
+    
+    // Get to the breaking phase
+    await test.clock.advanceBy(11)
+    #expect(test.schedule.isBlocking == true)
+    #expect(test.schedule.remainingTime == BREAK_1)
+    #expect(test.schedule.isPaused == false)
+    #expect(test.schedule.skipped == 0)
+    #expect(test.schedule.delayed == 0)
+    #expect(test.schedule.count == 1)
+    #expect(test.schedule.completed == 0)
+    
+    // Restart the current work cycle
+    test.schedule.restartWorkCycle()
+    // Give the schedule a chance to process the restart
+    await test.clock.tick()
+    
+    #expect(test.schedule.isBlocking == false)
+    #expect(test.schedule.remainingTime == WORK_1)
+    #expect(test.schedule.isPaused == false)
+    #expect(test.schedule.skipped == 0)
+    #expect(test.schedule.delayed == 0)
+    #expect(test.schedule.count == 1)
+    #expect(test.schedule.completed == 0)
+  }
+
+  @Test("should be able to restart the current schedule from the beginniing.")
+  func testRestartSchedule() async {
+    let test = BreakScheduleTestContext()
+    test.schedule.start()
+    
+    // Start in the working phase
+    await test.clock.tick()
+    #expect(test.schedule.isBlocking == false)
+    #expect(test.schedule.remainingTime == WORK_1)
+    
+    // Skip to the next work cycle
+    test.schedule.skip()
+    await test.clock.tick()
+    
+    #expect(test.schedule.isBlocking == false)
+    #expect(test.schedule.remainingTime == WORK_2)
+    #expect(test.schedule.isPaused == false)
+    #expect(test.schedule.skipped == 1)
+    #expect(test.schedule.delayed == 0)
+    #expect(test.schedule.count == 2)
+    #expect(test.schedule.completed == 0)
+    
+    // Restart the entire schedule
+    test.schedule.restartSchedule()
+    await test.clock.tick()
+    
+    #expect(test.schedule.isBlocking == false)
+    #expect(test.schedule.remainingTime == WORK_1)
+    #expect(test.schedule.isPaused == false)
+    #expect(test.schedule.skipped == 0)
+    #expect(test.schedule.delayed == 0)
+    #expect(test.schedule.count == 1)
+    #expect(test.schedule.completed == 0)
   }
 
   @Test("Should be able to pause and resume when in the working phase.")

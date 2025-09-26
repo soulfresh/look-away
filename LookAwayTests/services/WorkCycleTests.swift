@@ -31,25 +31,46 @@ class WorkCycleTestContext {
 
   init(
     initialInteraction: TimeInterval = 10,
-    inactivityThresholds: [ActivityThreshold] = [
-      ActivityThreshold(
-        event: .keyUp,
-        threshold: 10
-      )
-    ],
+    inactivityThresholds: [ActivityThreshold]? = nil,
+    cameraRunning: Bool = false,
     debug: Bool = false
   ) {
     // Create a mutable interaction value that can be referenced in our callback.
     let interactionTime = InteractionTime(value: initialInteraction)
     self.interactionTime = interactionTime
 
+    // If no thresholds are provided, use a default threshold referencing interactionTime.value
+    let thresholds = inactivityThresholds ?? [
+      ActivityThreshold(
+        name: "keyUp",
+        threshold: 10,
+        callback: { interactionTime.value }
+      )
+    ]
+
     brk = WorkCycleSpy(
       frequency: 100,
       duration: 50,
       logger: Logger(enabled: debug),
-      inactivityThresholds: inactivityThresholds,
+      inactivityThresholds: thresholds,
       clock: clock.clock,
-      getSecondsSinceLastUserInteraction: { _ in interactionTime.value }
+      cameraProvider: MockCameraDeviceProvider(
+        devices: [
+          CameraActivityMonitor
+            .CameraInfo(
+              id: 0,
+              uniqueID: "mock-uid-0",
+              name: "Mock Camera",
+              manufacturer: "Mock Manufacturer",
+              isRunning: cameraRunning,
+              isVirtual: false,
+              creator: "Mock",
+              category: "Camera",
+              type: "USB",
+              modelID: "MockModel"
+            )
+        ]
+      )
     )
   }
 
@@ -110,9 +131,18 @@ struct WorkCycleTests {
 
   @Test("Should wait for the user to become inactive before starting the break.")
   func testWaitingPhase() async throws {
+    // Create a mutable interaction value first
+    let interactionTime = InteractionTime(value: 5)
+    // Pass a custom threshold referencing the interactionTime instance
     let test = WorkCycleTestContext(
-      initialInteraction: 5,
-      inactivityThresholds: [ActivityThreshold(event: .keyUp, threshold: 10)],
+      initialInteraction: interactionTime.value,
+      inactivityThresholds: [
+        ActivityThreshold(
+          name: "keyUp",
+          threshold: 10,
+          callback: { interactionTime.value }
+        )
+      ],
     )
     let clock = test.clock
     let breakInstance = test.brk
@@ -146,7 +176,7 @@ struct WorkCycleTests {
     #expect(breakInstance.isRunning == true)
 
     // Simulate the user becoming inactive by updating the callback.
-    test.interactionTime.value = 11
+    interactionTime.value = 11
 
     // Advance the clock enough for the timer to fire and re-check inactivity.
     await clock.advanceBy(5)

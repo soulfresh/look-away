@@ -1,45 +1,64 @@
 import Foundation
 import Quartz
 
-typealias UserInteractionCallback = (_: CGEventType) -> TimeInterval
+/// A callback that will return the number of seconds since some user interaction.
+typealias UserInteractionCallback = () -> TimeInterval
 
 /// Configures an event type that can be used to detect user inactivity.
 struct ActivityThreshold {
-  let event: CGEventType
+  // For debugging purposes
+  let name: String
   /// The length of time that it takes for this indicator to be considered inactive.
   let threshold: TimeInterval
+  let callback: UserInteractionCallback
+}
+
+private func gcEventSourceCallback(for type: CGEventType) -> UserInteractionCallback {
+  return {
+    CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: type)
+  }
 }
 
 /// Watches for user inactivity and notifies when the user has been inactive for the desired duration.
 class UserActivityMonitor<ClockType: Clock<Duration>> {
   private let logger: Logging
   private let clock: ClockType
-  private let getSecondsSinceLastUserInteraction: UserInteractionCallback
   private let thresholds: [ActivityThreshold]
 
   init(
     logger: Logging,
     thresholds: [ActivityThreshold]? = nil,
-    /// A callback that can be used to determine the number of seconds since the
-    /// last user activity. Allows you to mock CGEventSource for testing.
-    getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil,
     clock: ClockType? = nil
   ) {
     self.logger = logger
-    self.thresholds = thresholds ?? [
-      ActivityThreshold(event: .keyUp, threshold: 5),
-//      InactivityIndicator(event: .mouseMoved, threshold: 5),
-      ActivityThreshold(event: .leftMouseUp, threshold: 4),
-      ActivityThreshold(event: .rightMouseUp, threshold: 4),
-      ActivityThreshold(event: .otherMouseUp, threshold: 4),
-    ]
-    self.getSecondsSinceLastUserInteraction =
-      getSecondsSinceLastUserInteraction ?? { type in
-        CGEventSource.secondsSinceLastEventType(
-          .combinedSessionState,
-          eventType: type
-        )
-      }
+    self.thresholds =
+      thresholds ?? [
+        ActivityThreshold(
+          name: "keyUp",
+          threshold: 5,
+          callback: gcEventSourceCallback(for: .keyUp)
+        ),
+        //        ActivityThreshold(
+        //          name: "mouseMoved",
+        //          threshold: 5,
+        //          callback: gcEventSourceCallback(for: .mouseMoved)
+        //        ),
+        ActivityThreshold(
+          name: "leftMouseUp",
+          threshold: 4,
+          callback: gcEventSourceCallback(for: .leftMouseUp)
+        ),
+        ActivityThreshold(
+          name: "rightMouseUp",
+          threshold: 4,
+          callback: gcEventSourceCallback(for: .rightMouseUp)
+        ),
+        ActivityThreshold(
+          name: "otherMouseUp",
+          threshold: 4,
+          callback: gcEventSourceCallback(for: .otherMouseUp)
+        ),
+      ]
     self.clock = clock ?? ContinuousClock() as! ClockType
   }
 
@@ -56,15 +75,15 @@ class UserActivityMonitor<ClockType: Clock<Duration>> {
       logger.warn("No inactivity thresholds configured, skipping inactivity tracking.")
       return
     }
-    
+
     while true {
       if Task.isCancelled {
         logger.log("InactivityListener task was cancelled.")
         throw CancellationError()
       }
-      
+
       let measurements = thresholds.map {
-        let lastActivity = getSecondsSinceLastUserInteraction($0.event)
+        let lastActivity = $0.callback()
         return InactivityResult(
           indicator: $0,
           lastActivity: lastActivity,
@@ -72,7 +91,7 @@ class UserActivityMonitor<ClockType: Clock<Duration>> {
           isInactive: lastActivity >= $0.threshold,
         )
       }
-      
+
       if measurements.allSatisfy({ $0.isInactive }) {
         logger.log("User inactivity detected")
         return
@@ -80,7 +99,7 @@ class UserActivityMonitor<ClockType: Clock<Duration>> {
 
       // Get the largest time remaining across all indicators.
       let timeRemaining = measurements.map { $0.timeRemaining }.max()!
-        
+
       logger.log("User activity detected. Sleeping for \(timeRemaining) seconds")
       try await clock.sleep(
         until: clock.now.advanced(by: .seconds(timeRemaining)), tolerance: .zero)

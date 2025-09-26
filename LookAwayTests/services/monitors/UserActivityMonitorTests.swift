@@ -10,7 +10,6 @@ class UserActivityMonitorTestContext {
 
   init(
     thresholds: [ActivityThreshold] = [],
-    getSecondsSinceLastUserInteraction: @escaping UserInteractionCallback = { _ in 10 },
     debug: Bool = false
   ) {
     let logger = Logger(enabled: debug)
@@ -18,7 +17,6 @@ class UserActivityMonitorTestContext {
     listener = UserActivityMonitor(
       logger: logger,
       thresholds: thresholds,
-      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
       clock: clock
     )
   }
@@ -53,7 +51,6 @@ struct UserActivityMonitorTests {
 
     let test = UserActivityMonitorTestContext(
       thresholds: [],
-      getSecondsSinceLastUserInteraction: spy.callback,
       debug: true
     )
 
@@ -70,21 +67,25 @@ struct UserActivityMonitorTests {
     let spy = UserActivityMonitorCallbackSpy()
     spy.interactionTime = 0
     let thresholds = [
-      ActivityThreshold(event: .keyUp, threshold: 5),
-      ActivityThreshold(event: .leftMouseUp, threshold: 10),
+      ActivityThreshold(
+        name: "keyUp",
+        threshold: 5,
+        callback: { spy.callback(type: .keyUp) }
+      ),
+      ActivityThreshold(
+        name: "leftMouseUp",
+        threshold: 10,
+        callback: { spy.callback(type: .leftMouseUp) }
+      ),
     ]
     let test = UserActivityMonitorTestContext(
       thresholds: thresholds,
-      getSecondsSinceLastUserInteraction: spy.callback,
       debug: true
     )
 
-    print("Starting test")
     var didFinish = false
     Task {
-      print("Starting inactivity listener")
       try await test.listener.waitForInactivity()
-      print("Inactivity listener finished")
       didFinish = true
     }
 

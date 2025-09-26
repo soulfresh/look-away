@@ -91,10 +91,10 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
 
     // Reset trackers:
     reset()
-    
+
     printSchedule()
   }
-  
+
   /// Reset the state to start from the beginning. You will need to call start()
   /// to begin the first work cycle.
   func reset() {
@@ -146,6 +146,21 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     } else {
       pause()
     }
+  }
+
+  /// Restart the entire schedule from the beginning.
+  func restartSchedule() {
+    reset()
+    start()
+  }
+
+  /// Restart the current work cycle from the beginning of the working phase.
+  func restartWorkCycle() {
+    isBlocking = false
+    isPaused = false
+    remainingTime = 0  // will be reset once the first cycle phase changes
+    phaseLength = 0  // will be reset once the first cycle phase changes
+    cycle?.startWorking()
   }
 
   /// Start the break portion of the current work cycle.
@@ -270,16 +285,13 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
           to: now,
           toGranularity: .day
         ) == .orderedAscending
+
       if isBeforeToday {
-        logger.log("Different day: resetting the work cycle.")
-        reset()
-        start()
+        logger.log("Different day: starting from beginning of schedule.")
+        restartSchedule()
       } else {
-        logger.log("Same day: continuing the last work cycle.")
-        // TODO Start from the beginning of the break schedule or
-        // restart the current work cycle rather than picking back up
-        // in the middle of a work cycle
-        resume()
+        logger.log("Same day: restarting this work cycle.")
+        restartWorkCycle()
       }
     case .sleeping:
       logger.log("System is going to sleep. Pausing the work cycle.")

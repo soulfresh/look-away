@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import Clocks
 
 // TODO This should be an Actor
 /// Represents a single break in a user's schedule.
@@ -62,9 +63,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   private let logger: Logging
 
   private let clock: ClockType
-  // A callback to get the number of seconds since the last user interaction.
-  // This allows mocking of GCEventSource in tests.
-  private var getSecondsSinceLastUserInteraction: UserInteractionCallback?
+  // A provider for camera device information.
+  private var cameraProvider: DeviceProviderProtocol?
 
   var description: String {
     return "WorkCycle(\(workLength) -> \(breakLength) [\(phase)])"
@@ -82,15 +82,14 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     logger: Logging,
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
-    // TODO Remove this and update ActivityThreshold to include a callback
-    getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
+    cameraProvider: DeviceProviderProtocol? = nil,
   ) {
     self.workLength = frequency
     self.breakLength = duration
     self.logger = logger
     self.inactivityThresholds = inactivityThresholds
     self.clock = clock ?? ContinuousClock() as! ClockType
-    self.getSecondsSinceLastUserInteraction = getSecondsSinceLastUserInteraction
+    self.cameraProvider = cameraProvider
   }
 
   convenience init(
@@ -99,7 +98,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     logger: Logging,
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
-    getSecondsSinceLastUserInteraction: UserInteractionCallback? = nil
+    cameraProvider: DeviceProviderProtocol? = nil,
   ) {
     self.init(
       frequency: TimeSpan(value: frequency, unit: .second),
@@ -107,7 +106,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
       logger: logger,
       inactivityThresholds: inactivityThresholds,
       clock: clock,
-      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction
+      cameraProvider: cameraProvider,
     )
   }
 
@@ -229,11 +228,11 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     // Make sure we're in the "waiting" phase
     phase = .waiting
     
-    let listener = InactivityListener(
+    let listener = InactivityListener<ClockType>(
       logger: LogWrapper(logger: logger, label: "Inactivity"),
       inactivityThresholds: inactivityThresholds,
-//      getSecondsSinceLastUserInteraction: getSecondsSinceLastUserInteraction,
-//      clock: clock
+      clock: clock,
+      cameraProvider: cameraProvider,
     )
     try await listener.waitForInactivity()
   }

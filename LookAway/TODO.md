@@ -1,24 +1,24 @@
 
-- Reset skipped/delayed/completed tracking on the next day
-- Reset to start of cycle when the screen is turned off or user logs out
-- Unpause when logging back in the next day
+- ✅ Reset skipped/delayed/completed tracking on the next day
+- ✅ Reset to start of cycle when the screen is turned off or user logs out
+- ✅ Unpause when logging back in the next day
+- ✅ Pause when video/camera is active
 
 - Start on login
-
 - Hide Look Away from screen share
-- Pause when video/camera is active
 - Pause when audio recording is active
-- Pause when certain apps are opened
+- Reduce update frequency when not blocking and menu is closed
 
 - Alt + Ctrl + Cmd + b should advance the next break if called in the middle of
   a break allowing me to navigate to a larger break. 
   - This should not impact my skipped or delayed count
 - Allow jumping to the longest break (or a specific break)
 
+- Exercise instructions
+- Pause when certain apps are opened
 - Display shortcut keys in menu from KeyboardShortcuts library
 - Make settings window look more like a native Settings tab bar
 - Don't reset schedule when closing settings if the settings didn't change
-- Exercise instructions
 - Improve usablility of Schedule form
   - accessibility
   - tab focus
