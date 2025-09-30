@@ -6,6 +6,7 @@ import SwiftUI
 /// full-screen preview windows.
 struct LookAwayContent: View {
   @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
+  @State private var baseColor: Color = .blue
   var safeAreaTopInset: CGFloat = 0
 
   var body: some View {
@@ -63,14 +64,29 @@ struct LookAwayContent: View {
           material: .hudWindow,
           blendingMode: .behindWindow,
         )
-        LinearGradient(
-          gradient: Gradient(colors: [
-            Color.theme.background.opacity(0.7),
-            Color.theme.background.opacity(0.95),
-          ]),
-          startPoint: .top,
-          endPoint: .bottom
+        .opacity(0.8)
+        
+        AnimatedGradient(
+          baseColor: .constant(
+            Color(
+              hue: 0.55,
+              saturation: 0.6,
+              brightness: 0.3,
+              opacity: 1.0
+            )
+          ),
+          colorRangeDegrees: .constant(25),
+          //          showDebugPoints: .constant(true)
         )
+        .opacity(0.90)
+        //        LinearGradient(
+        //          gradient: Gradient(colors: [
+        //            Color.theme.background.opacity(0.7),
+        //            Color.theme.background.opacity(0.95),
+        //          ]),
+        //          startPoint: .top,
+        //          endPoint: .bottom
+        //        )
       }
     )
   }

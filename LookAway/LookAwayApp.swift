@@ -91,8 +91,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
 
     storage = Storage(
       logger: LogWrapper(logger: logger, label: "Storage".cyan()),
-      // Whether to load the debug schedule
-      debug: false
+      debug: {
+        #if DEBUG
+          return true
+        #else
+          return false
+        #endif
+      }()
     )
 
     let config = storage.loadSchedule()
@@ -279,7 +284,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
    */
   func closeScreenBlockers() {
     closeSound?.play()
-    
+
     // Restore the default presentation options.
     NSApplication.shared.presentationOptions = defaultPresentationOptions
 
@@ -290,11 +295,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
 
     // Restore focus to the previously active application.
     if let app = previouslyActiveApp {
-//      app.activate(options: .activateIgnoringOtherApps)
+      //      app.activate(options: .activateIgnoringOtherApps)
       app.activate(options: .activateAllWindows)
       previouslyActiveApp = nil
     }
-    
+
     logger.log("Closed all blocker windows")
   }
 }

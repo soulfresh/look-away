@@ -3,25 +3,65 @@ import SwiftUI
 struct MeshPoint: Identifiable {
   let id = UUID()
   var position: UnitPoint
+  var color: Color
   var duration: Double
 }
 
+/// A `MeshGradient` that animates the positions/colors of points within the mesh.
 struct AnimatedGradient: View {
+  /// Whether or not the animate the mesh point positions
   @Binding var animateMesh: Bool
+  /// Whether or not to animate the mesh point colors
   @Binding var animateColors: Bool
-  @Binding var showDebugPoints: Bool
+  /// The base color of the gradient. All colors are randomized around this
+  /// color on the HSB color wheel.
   @Binding var baseColor: Color
+  /// The range in degrees around the base color to randomize colors.
   @Binding var colorRangeDegrees: Double
+  
+  /// Allows toggling on a debug overlay showing the mesh points
+  @Binding var showDebugPoints: Bool
+
   @State private var meshPoints: [MeshPoint] = []
-  @State private var meshColors: [Color] = []
   @State private var timers: [UUID: DispatchWorkItem] = [:]
-  let rows: Int = 4
-  let cols: Int = 3
-  let minDuration: Double = 6.0
-  let maxDuration: Double = 8.0
-  let maxOffset: Double = 0.20
-  // Minimum distance in pixels between points
-  let minPointDistance: CGFloat = 32
+  
+  let rows: Int = 3
+  let cols: Int = 4
+  private var minDuration: Double = 1.0 // 6.0
+  private var maxDuration: Double = 2.0 //8.0
+  /// The maximum distance that points are allowed to move from their starting
+  /// position as a percentage of the view size.
+  private var maxOffset: Double = 0.95
+  /// Minimum distance in pixels between points. This helps ensure that points
+  /// don't get too close together which can cause artifacts in the mesh.
+  private var minPointDistance: CGFloat = 5
+  
+  init(
+    baseColor: Binding<Color>,
+    colorRangeDegrees: Binding<Double> = .constant(10.0),
+    /// How fast the points should animate. This sets the minimum duration,
+    /// with the maximum being double this value.
+    speed: Double = 1.0,
+    /// The maximum distance that points are allowed to move from their starting
+    /// position as a percentage of the view size.
+    maxOffset: Double = 0.20,
+    /// Minimum distance in pixels between points. This helps ensure that points
+    /// don't get too close together which can cause artifacts in the mesh.
+    minPointDistance: CGFloat = 10,
+    animateMesh: Binding<Bool> = .constant(true),
+    animateColors: Binding<Bool> = .constant(true),
+    showDebugPoints: Binding<Bool> = .constant(false)
+  ) {
+    self._baseColor = baseColor
+    self._colorRangeDegrees = colorRangeDegrees
+    self._animateMesh = animateMesh
+    self._animateColors = animateColors
+    self._showDebugPoints = showDebugPoints
+    self.minDuration = speed
+    self.maxDuration = speed * 2
+    self.maxOffset = maxOffset
+    self.minPointDistance = minPointDistance
+  }
 
   func randomUnitPoint() -> UnitPoint {
     UnitPoint(x: Double.random(in: 0...1), y: Double.random(in: 0...1))
@@ -90,7 +130,13 @@ struct AnimatedGradient: View {
       for col in 0..<cols {
         let x = Double(col) / Double(cols - 1)
         let y = Double(row) / Double(rows - 1)
-        points.append(MeshPoint(position: UnitPoint(x: x, y: y), duration: randomDuration()))
+        points.append(
+          MeshPoint(
+            position: UnitPoint(x: x, y: y),
+            color: randomColor(),
+            duration: randomDuration()
+          )
+        )
       }
     }
     return points
@@ -102,9 +148,15 @@ struct AnimatedGradient: View {
   }
 
   // Helper to randomize a single mesh point's position
-  func randomizeMeshPoint(_ meshPoint: MeshPoint, index: Int, viewSize: CGSize, currentPoints: [MeshPoint]) -> MeshPoint {
+  func randomPosition(
+    _ meshPoint: MeshPoint,
+    index: Int,
+    viewSize: CGSize,
+    currentPoints: [MeshPoint]
+  ) -> UnitPoint {
     let row = index / cols
     let col = index % cols
+
     // First, generate the base grid
     let base = UnitPoint(x: Double(col) / Double(cols - 1), y: Double(row) / Double(rows - 1))
     let isTop = row == 0
@@ -112,35 +164,53 @@ struct AnimatedGradient: View {
     let isLeft = col == 0
     let isRight = col == cols - 1
     let isCorner = (isTop || isBottom) && (isLeft || isRight)
+
+    // Corners stay fixed
+    // TODO We could move these around outside of the view bounds
     if isCorner {
-      return MeshPoint(position: base, duration: randomDuration())
+      return base
     }
-    var minX = base.x, maxX = base.x, minY = base.y, maxY = base.y
-    var fixX = false, fixY = false
+
+    var minX = base.x
+    var maxX = base.x
+    var minY = base.y
+    var maxY = base.y
+    var fixX = false
+    var fixY = false
+
+    // TODO DRY this up
     if isTop {
       let prevX = currentPoints[safe: index - 1]?.position.x ?? base.x
       let nextX = currentPoints[safe: index + 1]?.position.x ?? base.x
       minX = max(prevX, base.x - maxOffset)
       maxX = min(nextX, base.x + maxOffset)
-      minY = 0; maxY = 0; fixY = true
+      minY = 0
+      maxY = 0
+      fixY = true
     } else if isBottom {
       let prevX = currentPoints[safe: index - 1]?.position.x ?? base.x
       let nextX = currentPoints[safe: index + 1]?.position.x ?? base.x
       minX = max(prevX, base.x - maxOffset)
       maxX = min(nextX, base.x + maxOffset)
-      minY = 1; maxY = 1; fixY = true
+      minY = 1
+      maxY = 1
+      fixY = true
     } else if isLeft {
       let prevY = currentPoints[safe: index - cols]?.position.y ?? base.y
       let nextY = currentPoints[safe: index + cols]?.position.y ?? base.y
       minY = max(prevY, base.y - maxOffset)
       maxY = min(nextY, base.y + maxOffset)
-      minX = 0; maxX = 0; fixX = true
+      minX = 0
+      maxX = 0
+      fixX = true
     } else if isRight {
       let prevY = currentPoints[safe: index - cols]?.position.y ?? base.y
       let nextY = currentPoints[safe: index + cols]?.position.y ?? base.y
       minY = max(prevY, base.y - maxOffset)
       maxY = min(nextY, base.y + maxOffset)
-      minX = 1; maxX = 1; fixX = true
+      minX = 1
+      maxX = 1
+      fixX = true
     } else {
       let minXNeighbor = currentPoints[safe: index - 1]?.position.x ?? base.x
       let maxXNeighbor = currentPoints[safe: index + 1]?.position.x ?? base.x
@@ -151,6 +221,7 @@ struct AnimatedGradient: View {
       minY = max(minYNeighbor, base.y - maxOffset)
       maxY = min(maxYNeighbor, base.y + maxOffset)
     }
+
     // Use isFarEnough for collision avoidance
     let placed = currentPoints.prefix(index).map { $0.position }
     let newPos = randomizePoint(
@@ -161,7 +232,8 @@ struct AnimatedGradient: View {
       viewSize: viewSize,
       fixX: fixX, fixY: fixY
     )
-    return MeshPoint(position: newPos, duration: randomDuration())
+    
+    return newPos
   }
 
   // Helper to randomize a point with constraints
@@ -189,7 +261,8 @@ struct AnimatedGradient: View {
   }
 
   // Helper to check min distance in pixel space
-  private func isFarEnough(_ candidate: UnitPoint, _ placed: [UnitPoint], viewSize: CGSize) -> Bool {
+  private func isFarEnough(_ candidate: UnitPoint, _ placed: [UnitPoint], viewSize: CGSize) -> Bool
+  {
     let cx = CGFloat(candidate.x) * viewSize.width
     let cy = CGFloat(candidate.y) * viewSize.height
     for pt in placed {
@@ -208,28 +281,28 @@ struct AnimatedGradient: View {
     let id = meshPoint.id
     let workItem = DispatchWorkItem {
       var newPoint = meshPoint
-      var newColor: Color? = nil
+      newPoint.duration = self.randomDuration()
+
       if self.animateMesh {
-        newPoint = self.randomizeMeshPoint(meshPoint, index: index, viewSize: geo.size, currentPoints: self.meshPoints)
-      } else {
-        // Still randomize duration for next cycle
-        newPoint.duration = self.randomDuration()
+        newPoint.position = self.randomPosition(
+          meshPoint,
+          index: index,
+          viewSize: geo.size,
+          currentPoints: self.meshPoints
+        )
       }
+
       if self.animateColors {
-        newColor = self.randomColor()
+        newPoint.color = self.randomColor()
       }
+
       DispatchQueue.main.async {
         withAnimation(.easeInOut(duration: duration)) {
-          if self.animateMesh {
+          if self.animateMesh || self.animateColors {
             self.meshPoints[index] = newPoint
-          } else {
-            // Only update duration
-            self.meshPoints[index].duration = newPoint.duration
-          }
-          if let color = newColor, self.meshColors.indices.contains(index) {
-            self.meshColors[index] = color
           }
         }
+        
         // Reschedule for next animation
         self.scheduleAnimation(for: index, geo: geo)
       }
@@ -241,10 +314,6 @@ struct AnimatedGradient: View {
 
   // Helper to start all animations
   func startAllAnimations(geo: GeometryProxy) {
-    // Ensure meshColors is always the correct length
-    if meshColors.count != meshPoints.count {
-      meshColors = initialMeshColors()
-    }
     for idx in meshPoints.indices {
       scheduleAnimation(for: idx, geo: geo)
     }
@@ -265,24 +334,20 @@ struct AnimatedGradient: View {
           width: cols,
           height: rows,
           points: meshPointsToSIMD(meshPoints.isEmpty ? initialMeshPoints() : meshPoints),
-          colors: meshColors.isEmpty ? initialMeshColors() : meshColors
+          colors: meshPoints.map { $0.color },
         )
-        .animation(.easeInOut(duration: 1.0), value: meshColors)
-        // Overlay control points
+        
         if showDebugPoints {
-          let points = meshPoints.isEmpty ? initialMeshPoints() : meshPoints
-          let colors = meshColors.isEmpty ? initialMeshColors() : meshColors
-          ForEach(Array(points.enumerated()), id: \.offset) { idx, meshPoint in
-            let color = colors[idx]
-            DebugCircle(color: color, index: idx, size: 16)
-              .position(x: meshPoint.position.x * geo.size.width, y: meshPoint.position.y * geo.size.height)
+          ForEach(Array(meshPoints.enumerated()), id: \.offset) { idx, meshPoint in
+            DebugCircle(color: meshPoint.color, index: idx, size: 16)
+              .position(
+                x: meshPoint.position.x * geo.size.width, y: meshPoint.position.y * geo.size.height)
           }
         }
       }
       .ignoresSafeArea()
       .onAppear {
         meshPoints = initialMeshPoints()
-        meshColors = initialMeshColors()
         stopAllAnimations()
         if animateMesh || animateColors {
           startAllAnimations(geo: geo)
@@ -294,7 +359,6 @@ struct AnimatedGradient: View {
       .onChange(of: animateMesh) { _, _ in
         stopAllAnimations()
         meshPoints = initialMeshPoints()
-        meshColors = initialMeshColors()
         if animateMesh || animateColors {
           startAllAnimations(geo: geo)
         }
@@ -302,16 +366,15 @@ struct AnimatedGradient: View {
       .onChange(of: animateColors) { _, _ in
         stopAllAnimations()
         meshPoints = initialMeshPoints()
-        meshColors = initialMeshColors()
         if animateMesh || animateColors {
           startAllAnimations(geo: geo)
         }
       }
       .onChange(of: baseColor) { _, _ in
-        meshColors = initialMeshColors()
+        meshPoints = initialMeshPoints()
       }
       .onChange(of: colorRangeDegrees) { _, _ in
-        meshColors = initialMeshColors()
+        meshPoints = initialMeshPoints()
       }
     }
   }
@@ -386,12 +449,12 @@ struct AnimatedGradient_Previews: PreviewProvider {
 
     var body: some View {
       VStack {
-        AnimatedGradient(// AnimatedGradient no longer needs to know about controls
+        AnimatedGradient(
+          baseColor: $baseColor,
+          colorRangeDegrees: $colorRangeDegrees,
           animateMesh: $animateMesh,
           animateColors: $animateColors,
           showDebugPoints: $showDebugPoints,
-          baseColor: $baseColor,
-          colorRangeDegrees: $colorRangeDegrees
         )
         VStack {
           MeshGradientControls(

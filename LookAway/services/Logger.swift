@@ -26,11 +26,21 @@ class Logger: Logging {
   private let queue = DispatchQueue(label: "com.lookaway.performanceTimer")
   private var timers: [String: Date] = [:]
   private let dateFormatter: DateFormatter
+  private let logFileURL: URL?
 
-  init(enabled: Bool = true) {
+  init(enabled: Bool = true, level: LogLevel = .debug, logToFile: Bool = true) {
     self.dateFormatter = DateFormatter()
     self.dateFormatter.dateFormat = "mm:ss.SSSS"
     self.enabled = enabled
+    
+    if logToFile,
+       let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+      let dir = appSupport.appendingPathComponent("LookAway", isDirectory: true)
+      try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+      self.logFileURL = dir.appendingPathComponent("app.log")
+    } else {
+      self.logFileURL = nil
+    }
   }
 
   private func timeStamp() -> String {
@@ -42,31 +52,53 @@ class Logger: Logging {
     "[\(self.timeStamp())] ".grey()
   }
 
+  private func writeToFile(_ message: String) {
+    guard let url = logFileURL else { return }
+    let data = (message + "\n").data(using: .utf8)!
+    if FileManager.default.fileExists(atPath: url.path) {
+      if let handle = try? FileHandle(forWritingTo: url) {
+        handle.seekToEndOfFile()
+        handle.write(data)
+        handle.closeFile()
+      }
+    } else {
+      try? data.write(to: url)
+    }
+  }
+
   func error(_ message: String) {
     guard enabled, logLevel <= .error else { return }
+    let logMsg = self.prefix() + "ERROR: \(message)".red()
     queue.async {
-      print(self.prefix() + "ERROR: \(message)".red())
+      print(logMsg)
+      self.writeToFile(logMsg)
     }
   }
 
   func warn(_ message: String) {
     guard enabled, logLevel <= .warn else { return }
+    let logMsg = self.prefix() + "WARN: \(message)".yellow()
     queue.async {
-      print(self.prefix() + "WARN: \(message)".yellow())
+      print(logMsg)
+      self.writeToFile(logMsg)
     }
   }
 
   func log(_ message: String) {
     guard enabled, logLevel <= .info else { return }
+    let logMsg = self.prefix() + message
     queue.async {
-      print(self.prefix() + message)
+      print(logMsg)
+      self.writeToFile(logMsg)
     }
   }
 
   func debug(_ message: String) {
     guard enabled, logLevel <= .debug else { return }
+    let logMsg = self.prefix() + message.grey()
     queue.async {
-      print(self.prefix() + message.grey())
+      print(logMsg)
+      self.writeToFile(logMsg)
     }
   }
   
@@ -91,8 +123,9 @@ class Logger: Logging {
       guard let startTime = self.timers[label] else { return }
 
       let duration = endTime.timeIntervalSince(startTime)
-
-      print("\(label): \(String(format: "%.3f", duration * 1000)) ms")
+      let logMsg = "\(label): \(String(format: "%.3f", duration * 1000)) ms"
+      print(logMsg)
+      self.writeToFile(logMsg)
     }
   }
 }
