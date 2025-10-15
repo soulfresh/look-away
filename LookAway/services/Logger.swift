@@ -27,11 +27,21 @@ class Logger: Logging {
   private var timers: [String: Date] = [:]
   private let dateFormatter: DateFormatter
   private let logFileURL: URL?
+  private let maxLines: Int?
 
-  init(enabled: Bool = true, level: LogLevel = .debug, logToFile: Bool = true) {
+  init(
+    enabled: Bool = true,
+    level: LogLevel = .debug,
+    /// Whether to log to a file in `Application Support/LookAway/app.log`
+    logToFile: Bool = true,
+    /// The maximum number of lines to keep in the log file. Older lines will be removed.
+    /// If `nil`, the log file will grow indefinitely.
+    maxLines: Int? = 5000
+  ) {
     self.dateFormatter = DateFormatter()
     self.dateFormatter.dateFormat = "mm:ss.SSSS"
     self.enabled = enabled
+    self.maxLines = maxLines
 
     if logToFile,
       let appSupport = FileManager.default.urls(
@@ -57,15 +67,33 @@ class Logger: Logging {
 
   private func writeToFile(_ message: String) {
     guard let url = logFileURL else { return }
-    let data = (message + "\n").data(using: .utf8)!
+    let newLine = message + "\n"
+
     if FileManager.default.fileExists(atPath: url.path) {
-      if let handle = try? FileHandle(forWritingTo: url) {
-        handle.seekToEndOfFile()
-        handle.write(data)
-        handle.closeFile()
+      // Read existing lines if maxLines is set
+      if let maxLines = maxLines {
+        if let content = try? String(contentsOf: url, encoding: .utf8) {
+          var lines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+          lines.append(message)
+
+          // Keep only the last maxLines entries
+          if lines.count > maxLines {
+            lines = Array(lines.suffix(maxLines))
+          }
+
+          let newContent = lines.joined(separator: "\n") + "\n"
+          try? newContent.write(to: url, atomically: true, encoding: .utf8)
+        }
+      } else {
+        // No line limit - append as before
+        if let handle = try? FileHandle(forWritingTo: url) {
+          handle.seekToEndOfFile()
+          handle.write(newLine.data(using: .utf8)!)
+          handle.closeFile()
+        }
       }
     } else {
-      try? data.write(to: url)
+      try? newLine.write(to: url, atomically: true, encoding: .utf8)
     }
   }
 
