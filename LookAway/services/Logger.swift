@@ -32,9 +32,12 @@ class Logger: Logging {
     self.dateFormatter = DateFormatter()
     self.dateFormatter.dateFormat = "mm:ss.SSSS"
     self.enabled = enabled
-    
+
     if logToFile,
-       let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+      let appSupport = FileManager.default.urls(
+        for: .applicationSupportDirectory, in: .userDomainMask
+      ).first
+    {
       let dir = appSupport.appendingPathComponent("LookAway", isDirectory: true)
       try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
       self.logFileURL = dir.appendingPathComponent("app.log")
@@ -47,7 +50,7 @@ class Logger: Logging {
     let now = Date()
     return dateFormatter.string(from: now)
   }
-  
+
   private func prefix() -> String {
     "[\(self.timeStamp())] ".grey()
   }
@@ -101,7 +104,7 @@ class Logger: Logging {
       self.writeToFile(logMsg)
     }
   }
-  
+
   func time(_ label: String) {
     // Allow adding timers so that if logs get enabled before `timeEnd` we
     // can still print that duration.

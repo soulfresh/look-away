@@ -90,21 +90,27 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.schedule = schedule
 
     // Reset trackers:
-    reset()
+    reset(fullReset: true)
 
     printSchedule()
   }
 
   /// Reset the state to start from the beginning. You will need to call start()
   /// to begin the first work cycle.
-  func reset() {
-    logger.log("Resetting the break schedule state.")
-    count = 0  // must be reset in order to start at the beginning of the schedule
-    skipped = 0  // must be reset because count was reset
-    delayed = 0  // will be reset in startNextWorkCycle anyway
+  func reset(fullReset: Bool) {
+    if fullReset {
+      logger.log("Reset break schedule state.")
+      count = 0  // must be reset in order to start at the beginning of the schedule
+      skipped = 0  // must be reset because count was reset
+      delayed = 0  // will be reset in startNextWorkCycle anyway
+    } else {
+      logger.log("Reset to start of schedule.")
+    }
+
     remainingTime = 0  // will be reset once the first cycle phase changes
     phaseLength = 0  // will be reset once the first cycle phase changes
     isBlocking = false  // will be reset once the first cycle phase changes
+    isPaused = false
   }
 
   /// Print the current schedule to the console.
@@ -149,17 +155,14 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   }
 
   /// Restart the entire schedule from the beginning.
-  func restartSchedule() {
-    reset()
+  func restartSchedule(fullReset: Bool) {
+    reset(fullReset: fullReset)
     start()
   }
 
   /// Restart the current work cycle from the beginning of the working phase.
   func restartWorkCycle() {
-    isBlocking = false
-    isPaused = false
-    remainingTime = 0  // will be reset once the first cycle phase changes
-    phaseLength = 0  // will be reset once the first cycle phase changes
+    reset(fullReset: false)
     cycle?.startWorking()
   }
 
@@ -287,11 +290,11 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
         ) == .orderedAscending
 
       if isBeforeToday {
-        logger.log("Different day: starting from beginning of schedule.")
-        restartSchedule()
+        logger.log("Different day: resetting state.")
+        restartSchedule(fullReset: true)
       } else {
-        logger.log("Same day: restarting this work cycle.")
-        restartWorkCycle()
+        logger.log("Same day: starting schedule from beginning.")
+        restartSchedule(fullReset: false)
       }
     case .sleeping:
       logger.log("System is going to sleep. Pausing the work cycle.")
