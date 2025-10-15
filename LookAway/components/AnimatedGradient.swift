@@ -7,6 +7,12 @@ struct MeshPoint: Identifiable {
   var duration: Double
 }
 
+// TODO Maybe the way to get the mesh points to be attracted to each other is to
+// use a physics engine:
+// - each point has a spring attached to its original position
+// - each point is attracted to the other points
+// - each point has a force pushing them in random directions
+
 /// A `MeshGradient` that animates the positions/colors of points within the mesh.
 struct AnimatedGradient: View {
   /// Whether or not the animate the mesh point positions
@@ -18,24 +24,24 @@ struct AnimatedGradient: View {
   @Binding var baseColor: Color
   /// The range in degrees around the base color to randomize colors.
   @Binding var colorRangeDegrees: Double
-  
+
   /// Allows toggling on a debug overlay showing the mesh points
   @Binding var showDebugPoints: Bool
 
   @State private var meshPoints: [MeshPoint] = []
   @State private var timers: [UUID: DispatchWorkItem] = [:]
-  
+
   let rows: Int = 3
   let cols: Int = 4
-  private var minDuration: Double = 1.0 // 6.0
-  private var maxDuration: Double = 2.0 //8.0
+  private var minDuration: Double = 1.0  // 6.0
+  private var maxDuration: Double = 2.0  //8.0
   /// The maximum distance that points are allowed to move from their starting
   /// position as a percentage of the view size.
   private var maxOffset: Double = 0.95
   /// Minimum distance in pixels between points. This helps ensure that points
   /// don't get too close together which can cause artifacts in the mesh.
   private var minPointDistance: CGFloat = 5
-  
+
   init(
     baseColor: Binding<Color>,
     colorRangeDegrees: Binding<Double> = .constant(10.0),
@@ -232,7 +238,7 @@ struct AnimatedGradient: View {
       viewSize: viewSize,
       fixX: fixX, fixY: fixY
     )
-    
+
     return newPos
   }
 
@@ -302,7 +308,7 @@ struct AnimatedGradient: View {
             self.meshPoints[index] = newPoint
           }
         }
-        
+
         // Reschedule for next animation
         self.scheduleAnimation(for: index, geo: geo)
       }
@@ -336,7 +342,7 @@ struct AnimatedGradient: View {
           points: meshPointsToSIMD(meshPoints.isEmpty ? initialMeshPoints() : meshPoints),
           colors: meshPoints.map { $0.color },
         )
-        
+
         if showDebugPoints {
           ForEach(Array(meshPoints.enumerated()), id: \.offset) { idx, meshPoint in
             DebugCircle(color: meshPoint.color, index: idx, size: 16)
