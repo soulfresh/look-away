@@ -6,9 +6,18 @@ import KeyboardShortcuts
 import SwiftUI
 
 struct Environment {
+  static var isDebug: Bool {
+    #if DEBUG
+      return true
+    #else
+      return false
+    #endif
+  }
+
   static var isPreview: Bool {
     ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
   }
+
   static var isTesting: Bool {
     ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
   }
@@ -86,18 +95,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   var closeSound: AVAudioPlayer?
 
   override init() {
-    let logger = Logger(enabled: !Environment.isTesting)
+    let logger = Logger(
+      enabled: !Environment.isTesting,
+      logToFile:
+        Environment.isDebug)
     self.logger = logger
 
     storage = Storage(
       logger: LogWrapper(logger: logger, label: "Storage".cyan()),
-      debug: {
-        #if DEBUG
-          return true
-        #else
-          return false
-        #endif
-      }()
+      debug: Environment.isDebug
     )
 
     let config = storage.loadSchedule()

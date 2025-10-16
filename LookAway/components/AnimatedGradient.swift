@@ -4,7 +4,23 @@ struct MeshPoint: Identifiable {
   let id = UUID()
   var position: UnitPoint
   var color: Color
-  var duration: Double
+  var duration: Double = 0.0
+
+  var simdPosition: SIMD2<Float> {
+    SIMD2<Float>(Float(position.x), Float(position.y))
+  }
+
+  init(position: UnitPoint, color: Color, duration: Double = 0.0) {
+    self.position = position
+    self.color = color
+    self.duration = duration
+  }
+
+  init(position: SIMD2<Float>, color: Color, duration: Double = 0.0) {
+    self.position = UnitPoint(x: CGFloat(position.x), y: CGFloat(position.y))
+    self.color = color
+    self.duration = duration
+  }
 }
 
 // TODO Maybe the way to get the mesh points to be attracted to each other is to
@@ -397,12 +413,13 @@ struct DebugCircle: View {
   let color: Color
   let index: Int
   let size: CGFloat
+  var borderColor: Color = .black
   var body: some View {
     ZStack {
       Circle()
         .fill(color)
         .frame(width: size, height: size)
-        .overlay(Circle().stroke(Color.black, lineWidth: 1))
+        .overlay(Circle().stroke(borderColor, lineWidth: 1))
       Text("\(index)")
         .font(.system(size: size * 0.6, weight: .bold))
         .foregroundColor(.black)
