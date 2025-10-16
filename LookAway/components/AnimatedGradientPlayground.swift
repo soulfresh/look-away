@@ -8,19 +8,29 @@
 import SwiftUI
 import simd
 
+// A struct representing a point in the grid with column, row, and flat index
+struct GridPoint: CustomStringConvertible {
+  let column: Int
+  let row: Int
+  let index: Int
+  var description: String {
+    return "(col: \(column), row: \(row), idx: \(index))"
+  }
+}
+
 struct MeshGridHelper {
   /// Determine if the given index would represent a point that is not on the
   /// edge of the grid defined by the number of columns and rows.
-  static func isCenterPoint(index: Int, columns: Int, rows: Int) -> Bool {
+  static func isInnerPoint(index: Int, columns: Int, rows: Int) -> Bool {
     let col = index % columns
     let row = index / columns
     return col > 0 && col < columns - 1 && row > 0 && row < rows - 1
   }
-  
+
   /// Prevents compile-time constant folding to avoid "will never be executed" warnings
   @inline(never)
   static func identity<T>(_ value: T) -> T { value }
-  
+
   /// Determine if the given index would represent a corner point in the grid
   /// defined by the number of columns and rows.
   static func isCornerPoint(index: Int, columns: Int, rows: Int) -> Bool {
@@ -28,7 +38,7 @@ struct MeshGridHelper {
     let row = index / columns
     return (row == 0 || row == rows - 1) && (col == 0 || col == columns - 1)
   }
-  
+
   /// Returns the indices of the bounding polygon around a center point in the grid
   /// defined by the number of columns and rows. The bounding polygon is defined as
   /// the point above, right, below, and left of the given point.
@@ -98,7 +108,9 @@ struct MeshGridHelper {
   }
 
   /// Closest point on a segment a-b to point p
-  static func projectPointToSegment(_ p: SIMD2<Float>, a: SIMD2<Float>, b: SIMD2<Float>) -> SIMD2<Float> {
+  static func projectPointToSegment(_ p: SIMD2<Float>, a: SIMD2<Float>, b: SIMD2<Float>) -> SIMD2<
+    Float
+  > {
     let ab = b - a
     let denom = simd_dot(ab, ab)
     if denom <= 1e-9 { return a }
@@ -125,12 +137,263 @@ struct MeshGridHelper {
     }
     return neighbors
   }
+
+  /// Compute number of rows from point count and column count. Returns nil if invalid
+  /// (e.g. columns <= 0 or pointsCount not divisible by columns).
+  static func rows(forPointCount count: Int, columns: Int) -> Int? {
+    guard columns > 0, count % columns == 0 else { return nil }
+    return count / columns
+  }
+  
+  /// Compute the most rightward diagonal line possible that runs through
+  /// the given grid point. Returns an array of GridPoint structs representing
+  /// the line.
+  static func diagonalLine(
+    through point: GridPoint,
+    columns: Int,
+    rows: Int
+  ) -> [GridPoint] {
+    let d = point.column - point.row
+    var line: [GridPoint] = []
+    for r in 0..<rows {
+      let c = d + r
+      let clampedC = min(max(c, 0), columns - 1)
+      let clampedR = min(max(r, 0), rows - 1)
+      let clampedIdx = clampedR * columns + clampedC
+      line.append(
+        GridPoint(
+          column: clampedC,
+          row: clampedR,
+          index: clampedIdx
+        )
+      )
+    }
+    
+    return line
+  }
+}
+
+protocol PointBehavior {
+  /// Clamp proposed normalized point (0..1) given current mesh state.
+  /// Note: the number of rows is computed from points.count and columns inside the behavior.
+  func clamp(
+    proposed p: SIMD2<Float>,
+    index: Int,
+    points: [MeshPoint],
+    columns: Int
+  ) -> SIMD2<Float>
+}
+
+/// Type-erased wrapper so we can store heterogeneous behaviors in @State
+struct AnyPoint: PointBehavior {
+  private let _clamp: (SIMD2<Float>, Int, [MeshPoint], Int) -> SIMD2<Float>
+
+  init<B: PointBehavior>(_ base: B) {
+    _clamp = base.clamp
+  }
+
+  func clamp(
+    proposed p: SIMD2<Float>,
+    index: Int,
+    points: [MeshPoint],
+    columns: Int
+  ) -> SIMD2<Float> {
+    _clamp(p, index, points, columns)
+  }
+}
+
+// Corner points: immutable
+struct CornerPoint: PointBehavior {
+  func clamp(
+    proposed p: SIMD2<Float>,
+    index: Int,
+    points: [MeshPoint],
+    columns: Int
+  ) -> SIMD2<Float> {
+    return points[index].simdPosition
+  }
+}
+
+// Edge points: lock to axis (x or y) and clamp between immediate neighbors along that axis
+struct EdgePoint: PointBehavior {
+  enum Axis { case horizontal, vertical }
+  let axis: Axis
+  // original orthogonal coordinate to lock to (y for horizontal, x for vertical)
+  let fixedValue: Float
+  let lowerNeighborIndex: Int?
+  let upperNeighborIndex: Int?
+
+  init(index: Int, columns: Int, points: [MeshPoint]) {
+    let rows = MeshGridHelper.rows(forPointCount: points.count, columns: columns) ?? 1
+    let col = index % columns
+    let row = index / columns
+
+    // horizontal edge
+    if row == 0 || row == rows - 1 {
+      axis = .horizontal
+      fixedValue = points[index].simdPosition.y
+      if col > 0 {
+        lowerNeighborIndex = row * columns + (col - 1)
+      } else {
+        lowerNeighborIndex = nil
+      }
+      if col < columns - 1 {
+        upperNeighborIndex = row * columns + (col + 1)
+      } else {
+        upperNeighborIndex = nil
+      }
+    }
+    // vertical edge
+    else {
+      axis = .vertical
+      fixedValue = points[index].simdPosition.x
+      if row > 0 {
+        lowerNeighborIndex = (row - 1) * columns + col
+      } else {
+        lowerNeighborIndex = nil
+      }
+      if row < rows - 1 {
+        upperNeighborIndex = (row + 1) * columns + col
+      } else {
+        upperNeighborIndex = nil
+      }
+    }
+  }
+
+  func clamp(
+    proposed p: SIMD2<Float>,
+    index: Int,
+    points: [MeshPoint],
+    columns: Int
+  ) -> SIMD2<Float> {
+    var p = p
+
+    switch axis {
+    case .horizontal:
+      // lock Y to the outer edge coordinate
+      p.y = fixedValue
+      // clamp X between neighbors if both exist
+      if let l = lowerNeighborIndex, let r = upperNeighborIndex {
+        // guard indices
+        if l >= 0 && l < points.count && r >= 0 && r < points.count {
+          let leftX = points[l].simdPosition.x
+          let rightX = points[r].simdPosition.x
+          let lowerX = min(leftX, rightX)
+          let upperX = max(leftX, rightX)
+          p.x = min(max(p.x, lowerX), upperX)
+        }
+      }
+    case .vertical:
+      // lock X to the outer edge coordinate
+      p.x = fixedValue
+      if let t = lowerNeighborIndex, let b = upperNeighborIndex {
+        if t >= 0 && t < points.count && b >= 0 && b < points.count {
+          let topY = points[t].simdPosition.y
+          let bottomY = points[b].simdPosition.y
+          let lowerY = min(topY, bottomY)
+          let upperY = max(topY, bottomY)
+          p.y = min(max(p.y, lowerY), upperY)
+        }
+      }
+    }
+
+    return p
+  }
+}
+
+/// Inner grid points have their movement constrained within a diagonal band
+/// running top, left to bottom, right. The bounds of the diagonal are defined
+/// by the diagonal line that runs through the neighbor to the left and right
+/// of the point.
+///
+/// InnerPoints are guaranteed to be part of a grid that is at
+/// least 3x3 in size and are always an inner point (they never fall on the edge
+/// of the grid).
+struct InnerPoint: PointBehavior {
+  // store segment index pairs so we can fetch live positions each clamp
+  // Bool indicates whether the point must stay on the positive side of the directed segment
+  let segments: [(Int, Int, Bool)]
+  let leftNeighbor: GridPoint
+  let leftDiagonal: [GridPoint]
+  let rightNeighbor: GridPoint
+  let rightDiagonal: [GridPoint]
+  let bounds: [GridPoint]
+
+  init(index: Int, columns: Int, points: [MeshPoint]) {
+    // Arithmetic-based diagonal calculation using d = c - r
+    // Assumes this initializer is only used for true inner points and columns >= 3.
+    let rows = MeshGridHelper.rows(forPointCount: points.count, columns: columns) ?? 1
+    let col = index % columns
+    let row = index / columns
+
+    self.leftNeighbor = GridPoint(
+      column: col - 1,
+      row: row,
+      index: (row * columns) + (col - 1)
+    )
+    self.leftDiagonal = MeshGridHelper.diagonalLine(
+      through: self.leftNeighbor,
+      columns: columns,
+      rows: rows
+    )
+
+    self.rightNeighbor = GridPoint(
+      column: col + 1,
+      row: row,
+      index: (row * columns) + (col + 1)
+    )
+    self.rightDiagonal = MeshGridHelper.diagonalLine(
+      through: self.rightNeighbor,
+      columns: columns,
+      rows: rows
+    )
+
+    // Construct the closed polygon: left diagonal (top→bottom) + right diagonal (bottom→top)
+    self.bounds = self.leftDiagonal + self.rightDiagonal.reversed()
+    self.segments = [(0, 0, true)]
+  }
+
+  func clamp(
+    proposed p: SIMD2<Float>,
+    index: Int,
+    points: [MeshPoint],
+    columns: Int
+  ) -> SIMD2<Float> {
+    // Convert bounds GridPoints to actual SIMD2<Float> positions
+    var polygon: [SIMD2<Float>] = []
+    for gp in bounds {
+      guard gp.index >= 0 && gp.index < points.count else { continue }
+      polygon.append(points[gp.index].simdPosition)
+    }
+
+    // Need at least 3 points for a valid polygon
+    guard polygon.count >= 3 else { return p }
+
+    // Check if point is inside the polygon
+    if MeshGridHelper.isInsidePoly(p, bounds: polygon) {
+      return p
+    }
+
+    // Point is outside, clamp to nearest boundary
+    return MeshGridHelper.clampToPolyBounds(p, bounds: polygon)
+  }
+}
+
+func makeBehavior(for index: Int, columns: Int, currentPoints: [MeshPoint]) -> AnyPoint {
+  let rows = MeshGridHelper.rows(forPointCount: currentPoints.count, columns: columns) ?? 1
+  if MeshGridHelper.isCornerPoint(index: index, columns: columns, rows: rows) {
+    return AnyPoint(CornerPoint())
+  }
+  if MeshGridHelper.isInnerPoint(index: index, columns: columns, rows: rows) {
+    return AnyPoint(InnerPoint(index: index, columns: columns, points: currentPoints))
+  }
+  return AnyPoint(EdgePoint(index: index, columns: columns, points: currentPoints))
 }
 
 struct AnimatedGradientPlayground: View {
   let debug = true
   let columns = 4
-  let rows = 3
+  let rows = 4
 
   @State private var points: [MeshPoint]
 
@@ -147,9 +410,9 @@ struct AnimatedGradientPlayground: View {
         let rowsCount = MeshGridHelper.identity(rows)
         let x = cols == 1 ? 0.5 : CGFloat(col) / CGFloat(cols - 1)
         let y = rowsCount == 1 ? 0.5 : CGFloat(row) / CGFloat(rowsCount - 1)
-//        let isCenter = MeshGridHelper.isCenterPoint(
-//          index: row * columns + col, columns: columns, rows: rows)
-//        let color: Color = isCenter ? AnimatedGradientPlayground.randomColor() : .white
+        //        let isCenter = MeshGridHelper.isCenterPoint(
+        //          index: row * columns + col, columns: columns, rows: rows)
+        //        let color: Color = isCenter ? AnimatedGradientPlayground.randomColor() : .white
         // Use a random color for all points so I can more easily see rendering artifacts
         let color: Color = AnimatedGradientPlayground.randomColor()
         generatedPoints.append(MeshPoint(position: UnitPoint(x: x, y: y), color: color))
@@ -178,6 +441,8 @@ struct MeshDebugOverlay: View {
   let columns: Int
   let rows: Int
 
+  @State private var activeBehavior: AnyPoint? = nil
+
   init(columns: Int, points: Binding<[MeshPoint]>) {
     self._points = points
     self.columns = columns
@@ -191,7 +456,7 @@ struct MeshDebugOverlay: View {
   }
 
   func isCenterPoint(index: Int) -> Bool {
-    MeshGridHelper.isCenterPoint(index: index, columns: columns, rows: rows)
+    MeshGridHelper.isInnerPoint(index: index, columns: columns, rows: rows)
   }
 
   var body: some View {
@@ -224,7 +489,7 @@ struct MeshDebugOverlay: View {
           }
           // Use black as the line color so it is easier to see
           .stroke(Color.black.opacity(0.9), lineWidth: 1.5)
-          
+
           DebugCircle(color: point.color, index: pointIndex, size: 20)
             .position(
               x: CGFloat(point.position.x) * geo.size.width,
@@ -234,154 +499,42 @@ struct MeshDebugOverlay: View {
             .gesture(
               DragGesture()
                 .onChanged { value in
-                  // TODO We don't need this normalization step because points are already normalized
+                  // Create or reuse the behavior for this drag target
+                  if activeBehavior == nil {
+                    activeBehavior = makeBehavior(
+                      for: pointIndex,
+                      columns: columns,
+                      currentPoints: points
+                    )
+                  }
+
                   // Normalized position within [0, 1]
-                  var newX = min(max(0, value.location.x / geo.size.width), 1)
-                  var newY = min(max(0, value.location.y / geo.size.height), 1)
+                  let rawX = value.location.x / geo.size.width
+                  let rawY = value.location.y / geo.size.height
+                  let newX = min(max(0, rawX), 1)
+                  let newY = min(max(0, rawY), 1)
 
-                  // Grid coordinates
-                  let col = pointIndex % columns
-                  let row = pointIndex / columns
+                  let proposed = SIMD2<Float>(Float(newX), Float(newY))
 
-                  // Corner points are immovable
-                  if MeshGridHelper.isCornerPoint(index: pointIndex, columns: columns, rows: rows) {
-                    return
-                  }
+                  // Ask the behavior to clamp the proposed point
+                  let clamped =
+                    activeBehavior?.clamp(
+                      proposed: proposed,
+                      index: pointIndex,
+                      points: points,
+                      columns: columns
+                    ) ?? proposed
 
-                  // Edge constraints: lock to outer edges
-                  if row == 0 {
-                    newY = 0
-                  }  // top edge
-                  else if row == rows - 1 {
-                    newY = 1
-                  }  // bottom edge
-                  else if col == 0 {
-                    newX = 0
-                  }  // left edge
-                  else if col == columns - 1 {
-                    newX = 1
-                  }  // right edge
-
-                  // Maintain ordering along edges: clamp along the moving axis
-                  // between immediate neighbors
-                  if row == 0 || row == rows - 1 {
-                    // Horizontal edge (top or bottom) -
-                    // clamp X between left and right neighbors
-                    if col > 0 && col < columns - 1 {
-                      let rowStart = row * columns
-                      let leftIdx = rowStart + (col - 1)
-                      let rightIdx = rowStart + (col + 1)
-                      let leftX = CGFloat(points[leftIdx].position.x)
-                      let rightX = CGFloat(points[rightIdx].position.x)
-                      let lowerX = min(leftX, rightX)
-                      let upperX = max(leftX, rightX)
-                      // Clamp to ensure we don't pass neighbors
-                      newX = min(max(newX, lowerX), upperX)
-                    }
-                  } else if col == 0 || col == columns - 1 {
-                    // Vertical edge (left or right) - clamp Y between top and bottom neighbors
-                    if row > 0 && row < rows - 1 {
-                      let topIdx = (row - 1) * columns + col
-                      let bottomIdx = (row + 1) * columns + col
-                      let topY = CGFloat(points[topIdx].position.y)
-                      let bottomY = CGFloat(points[bottomIdx].position.y)
-                      let lowerY = min(topY, bottomY)
-                      let upperY = max(topY, bottomY)
-                      // Clamp to ensure we don't pass neighbors
-                      newY = min(max(newY, lowerY), upperY)
-                    }
-                  }
-
-                  // Additional clamp for inner points:
-                  // keep each center on its side of the NW-SE diagonal polyline
-                  var p = SIMD2<Float>(Float(newX), Float(newY))
-                  if MeshGridHelper.isCenterPoint(index: pointIndex, columns: columns, rows: rows) {
-                    // Build the two diagonal segments depending on which inner this is
-                    var segments: [(SIMD2<Float>, SIMD2<Float>)] = []
-                    // true: keep signed side >= 0, false: <= 0
-                    var requirePositiveSide = true
-
-                    if col + 1 < columns - 1 {
-                      // This is the left inner (e.g., 5).
-                      // Constrain relative to 1->6 and 6->BR (11)
-                      let topIdx = (row - 1) * columns + col
-                      let rightCenterIdx = row * columns + (col + 1)
-                      let brCornerIdx = (rows - 1) * columns + (columns - 1)
-                      let a1 = points[topIdx].simdPosition
-                      let b1 = points[rightCenterIdx].simdPosition
-                      let a2 = b1
-                      let b2 = points[brCornerIdx].simdPosition
-                      segments = [(a1, b1), (a2, b2)]
-                      // keep to the left of the directed lines
-                      requirePositiveSide = true
-                    } else if col - 1 > 0 {
-                      // This is the right center (e.g., 6).
-                      // Constrain relative to 0->5 and 5->10
-                      let tlCornerIdx = 0
-                      let leftCenterIdx = row * columns + (col - 1)
-                      let bottomIdx = (row + 1) * columns + col
-                      let a1 = points[tlCornerIdx].simdPosition
-                      let b1 = points[leftCenterIdx].simdPosition
-                      let a2 = b1
-                      let b2 = points[bottomIdx].simdPosition
-                      segments = [(a1, b1), (a2, b2)]
-                      // keep to the right of the directed lines (signed side <= 0)
-                      requirePositiveSide = false
-                    } else {
-                      // Fallback: use local diagonal through neighbors if layout differs
-                      if row - 1 >= 0 && col - 1 >= 0 && row + 1 < rows && col + 1 < columns {
-                        let a1 = points[(row - 1) * columns + col - 1].simdPosition
-                        let b1 = points[pointIndex].simdPosition
-                        let a2 = b1
-                        let b2 = points[(row + 1) * columns + col + 1].simdPosition
-                        segments = [(a1, b1), (a2, b2)]
-                        requirePositiveSide = true
-                      }
-                    }
-
-                    // Apply clamping against each segment if on the forbidden side
-                    for (a, b) in segments {
-                      // Skip degenerate segments
-                      let ab = b - a
-                      if simd_length_squared(ab) <= 1e-9 { continue }
-                      let side = MeshGridHelper.signedSide(of: p, a: a, b: b)
-                      if requirePositiveSide {
-                        if side < 0 {
-                          p = MeshGridHelper.projectPointToSegment(p, a: a, b: b)
-                        }
-                      } else {
-                        if side > 0 {
-                          p = MeshGridHelper.projectPointToSegment(p, a: a, b: b)
-                        }
-                      }
-                    }
-
-                    // Update clamped newX/newY from p
-                    newX = CGFloat(p.x)
-                    newY = CGFloat(p.y)
-                  }
-
-                  // Interior points are free to move (no extra clamping beyond [0,1])
                   var newPoints = points
-                  let newPoint = SIMD2<Float>(Float(newX), Float(newY))
-                  newPoints[pointIndex] = MeshPoint(position: newPoint, color: point.color)
+                  let newPoint = SIMD2<Float>(clamped.x, clamped.y)
+                  newPoints[pointIndex] = MeshPoint(
+                    position: newPoint,
+                    color: point.color
+                  )
                   points = newPoints
-
-                  // Clamping code - disabled for now
-                  //                  if isCenter, let boundingIndicies = MeshGridHelper.boundingPolyIndicies(for: pointIndex, columns: columns, rows: rows) {
-                  //                    let bounds = boundingIndicies.map { points[$0].simdPosition }
-                  //                    let clampedPoint: SIMD2<Float>
-                  //                    if MeshGridHelper.isInsidePoly(newPoint, bounds: bounds) {
-                  //                      clampedPoint = newPoint
-                  //                    } else {
-                  //                      clampedPoint = MeshGridHelper.clampToPolyBounds(newPoint, bounds: bounds)
-                  //                    }
-                  //                    newPoints[pointIndex] = MeshPoint(position: clampedPoint, color: point.color)
-                  //                    points = newPoints
-                  //                  } else {
-                  //                    newPoints[pointIndex] = MeshPoint(position: newPoint, color: point.color)
-                  //                    points = newPoints
-                  //                  }
+                }
+                .onEnded { _ in
+                  activeBehavior = nil
                 }
             )
         }
