@@ -310,9 +310,6 @@ struct EdgePoint: PointBehavior {
 /// least 3x3 in size and are always an inner point (they never fall on the edge
 /// of the grid).
 struct InnerPoint: PointBehavior {
-  // store segment index pairs so we can fetch live positions each clamp
-  // Bool indicates whether the point must stay on the positive side of the directed segment
-  let segments: [(Int, Int, Bool)]
   let leftNeighbor: GridPoint
   let leftDiagonal: [GridPoint]
   let rightNeighbor: GridPoint
@@ -350,7 +347,6 @@ struct InnerPoint: PointBehavior {
 
     // Construct the closed polygon: left diagonal (top→bottom) + right diagonal (bottom→top)
     self.bounds = self.leftDiagonal + self.rightDiagonal.reversed()
-    self.segments = [(0, 0, true)]
   }
 
   func clamp(
