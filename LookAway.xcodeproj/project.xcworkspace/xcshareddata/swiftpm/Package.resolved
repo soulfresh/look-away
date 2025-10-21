@@ -1,6 +1,15 @@
 {
-  "originHash" : "fda72364276e910648fad5942e4d1c1d4ea6c6507bd117f33cb447c9c86d972c",
+  "originHash" : "3d7ed3e3d8c95a3ae1d89826c5240117a72b804210d1abadc3e9e6641a03dd7a",
   "pins" : [
+    {
+      "identity" : "box2d-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/soulfresh/box2d-swift",
+      "state" : {
+        "branch" : "main",
+        "revision" : "a16a4ceca13f79cf2da421c1c9eee37bab01cc3b"
+      }
+    },
     {
       "identity" : "keyboardshortcuts",
       "kind" : "remoteSourceControl",

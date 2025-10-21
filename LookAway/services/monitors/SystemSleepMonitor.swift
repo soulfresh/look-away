@@ -32,28 +32,18 @@ class SystemSleepMonitor {
   private var callback: ((SleepState) -> Void)?
   /// The object used to listen for distributed notification events.
   private let notificationCenter: DistributedNotificationCenterProtocol
-  /// The object used to listen for camera events.
-//  private let cameraListener: CameraMonitor
   /// The list of callbacks that can be used to cancel listeners.
   private var cancellables: [CancelCallback] = []
 
   private(set) var isScreenLocked: Bool = false
-//  private(set) var isCameraInUse: Bool = false
-  // Track the number of active camera connections
-//  private var activeCameraCount: Int = 0
-//  var isCameraInUse_old: Bool {
-//    return activeCameraCount > 0
-//  }
-//  private(set) var isMicrophoneInUse: Bool = false
   private(set) var isSystemSleeping: Bool = false
 
   /// Whether or not the system is considered to be sleeping. The system is
   /// considered "sleeping" if any of the sleep flags are true.
   var isSleeping: Bool {
     return isScreenLocked || isSystemSleeping
-//    return isScreenLocked || isCameraInUse || isMicrophoneInUse || isSystemSleeping
   }
-  
+
   private var lastState: SleepState = .awake
 
   init(
@@ -63,7 +53,6 @@ class SystemSleepMonitor {
   ) {
     self.logger = logger
     self.notificationCenter = notificationCenter
-//    self.cameraListener = CameraMonitor(logger: logger)
   }
 
   /// Start listening for system sleep/wake events. These will include events
@@ -75,8 +64,7 @@ class SystemSleepMonitor {
     logger.log("Starting system sleep listener")
 
     cancellables.append(listenForScreenLock())
-//    cancellables.append(listenForCameraUsage())
-//    cancellables.append(listenForCameraUsage_old())
+
     // Screen lock notifications seem to capture the events we need already
     // but keeping this in case we need to bring it back.
     // cancellables.append(listenForSystemSleep())
@@ -85,7 +73,7 @@ class SystemSleepMonitor {
   private func emitCurrentState() {
     let nextState = isSleeping ? SleepState.sleeping : SleepState.awake
     // Only emit if the state has changed.
-    if (nextState != lastState) {
+    if nextState != lastState {
       logger.log("System sleep state changed: \(nextState)")
       lastState = nextState
       // Emit the sleeping state based on the `isSleeping` computed property
@@ -127,72 +115,6 @@ class SystemSleepMonitor {
       self?.isScreenLocked = false
     }
   }
-
-  /// Listen for the camera usage.
-//  func listenForCameraUsage() -> () -> Void {
-//    // TODO This is happening before the first WorkCycle is initialized and
-//    // if the camera is in use when the listener starts, the initial WorkCycle
-//    // is not paused.
-//    // TODO Do we want to handle camera disconnect events differently from
-//    // lock screen? If the user is in a long meeting, it might be better
-//    // to immediately put them in a brake. I should probably implement the
-//    // camera listener directly inside of BreakSchedule so we can treat it
-//    // that way.
-//    cameraListener
-//      .startListening { [weak self] (state) in
-//        self?.logger.log("Received camera state change: \(state)")
-//        self?.isCameraInUse = state == .connected
-//        self?.emitCurrentState()
-//    }
-//    
-//    return { [weak self] in
-//      self?.cameraListener.stopListening()
-//    }
-//  }
-//  
-//  /// Listen for the camera usage.
-//  func listenForCameraUsage_old() -> () -> Void {
-//    DistributedNotificationCenter.default().addObserver(
-//        forName: nil,
-//        object: nil,
-//        queue: .main
-//    ) { notification in
-//        print("Received distributed notification: \(notification.name.rawValue)")
-//    }
-//
-//    let lockObserver = notificationCenter.addObserver(
-//      forName: NSNotification.Name(
-//        "com.apple.camera.avfoundation.videodevice.wasConnected"
-//      ),
-//      object: nil,
-//      queue: .main
-//    ) { [weak self] _ in
-//      guard let self = self else { return }
-//      self.logger.log("Received com.apple.camera.avfoundation.videodevice.wasConnected")
-//      self.activeCameraCount += 1
-//      self.emitCurrentState()
-//    }
-//
-//    let unlockObserver = notificationCenter.addObserver(
-//      forName: NSNotification.Name(
-//        "com.apple.camera.avfoundation.videodevice.wasDisconnected"
-//      ),
-//      object: nil,
-//      queue: .main
-//    ) { [weak self] _ in
-//      guard let self = self else { return }
-//      self.logger.log("Received com.apple.camera.avfoundation.videodevice.wasDisconnected")
-//      self.activeCameraCount = max(0, self.activeCameraCount - 1)
-//      self.emitCurrentState()
-//    }
-//
-//    return { [weak self] in
-//      self?.notificationCenter.removeObserver(lockObserver)
-//      self?.notificationCenter.removeObserver(unlockObserver)
-//      // Reset camera state when listener is removed
-//      self?.activeCameraCount = 0
-//    }
-//  }
 
   /// Listen for system sleep/wake notifications via IOKit.
   ///

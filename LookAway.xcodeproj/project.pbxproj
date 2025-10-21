@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		632789FF2EA7D65B00E7D637 /* box2d in Frameworks */ = {isa = PBXBuildFile; productRef = 632789FE2EA7D65B00E7D637 /* box2d */; };
 		635159EB2E831A2000E3CF71 /* LookAway.icon in Resources */ = {isa = PBXBuildFile; fileRef = 635159EA2E831A2000E3CF71 /* LookAway.icon */; };
 		63A90D532E4691B700096003 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 63A90D522E4691B700096003 /* KeyboardShortcuts */; };
 		63D122AD2E3827BB00DAEFF4 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 63D122AC2E3827BB00DAEFF4 /* Clocks */; };
@@ -74,6 +75,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				632789FF2EA7D65B00E7D637 /* box2d in Frameworks */,
 				63A90D532E4691B700096003 /* KeyboardShortcuts in Frameworks */,
 				63F564562E87266E0046CD27 /* Clocks in Frameworks */,
 			);
@@ -149,6 +151,7 @@
 			packageProductDependencies = (
 				63A90D522E4691B700096003 /* KeyboardShortcuts */,
 				63F564552E87266E0046CD27 /* Clocks */,
+				632789FE2EA7D65B00E7D637 /* box2d */,
 			);
 			productName = LookAway;
 			productReference = 638B05AF2DEA3D440052CFD2 /* LookAway.app */;
@@ -237,6 +240,7 @@
 			packageReferences = (
 				63D122AB2E3827BB00DAEFF4 /* XCRemoteSwiftPackageReference "swift-clocks" */,
 				63A90D512E4691B700096003 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				632789FD2EA7D65B00E7D637 /* XCRemoteSwiftPackageReference "box2d-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 638B05B02DEA3D440052CFD2 /* Products */;
@@ -485,6 +489,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
@@ -529,6 +534,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -643,6 +649,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		632789FD2EA7D65B00E7D637 /* XCRemoteSwiftPackageReference "box2d-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/soulfresh/box2d-swift";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		63A90D512E4691B700096003 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
@@ -662,6 +676,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		632789FE2EA7D65B00E7D637 /* box2d */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 632789FD2EA7D65B00E7D637 /* XCRemoteSwiftPackageReference "box2d-swift" */;
+			productName = box2d;
+		};
 		63A90D522E4691B700096003 /* KeyboardShortcuts */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 63A90D512E4691B700096003 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
