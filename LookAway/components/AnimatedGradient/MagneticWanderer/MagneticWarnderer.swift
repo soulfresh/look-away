@@ -5,15 +5,144 @@ import box2d
 public enum MagneticWanderer {}
 
 extension MagneticWanderer {
-  struct ColorGrid {
-    let columns: Int
-    let rows: Int
 
-    func getColor(atColumn column: Int, row: Int) -> Color {
-      // Generate a color based on position
-      let hue = Double(column) / Double(columns)
-      let saturation = Double(row) / Double(rows)
-      return Color(hue: hue, saturation: saturation, brightness: 0.8)
+  struct AnimatedMesh: View {
+    let columns = 4
+    let rows = 4
+    @StateObject private var world = PhysicsSimulation()
+    @State private var clock: any Clock<Duration>
+    @State private var showCanvas: Bool = false
+    @State private var colors: ColorGrid
+
+    init(clock: any Clock<Duration> = ContinuousClock()) {
+      self.clock = clock
+      self.colors = MultiColorGrid(
+        columns: columns,
+        rows: rows,
+        colorCount: 2,
+        rotationDegrees: Double.random(in: 0...360)
+      )
+    }
+
+    var body: some View {
+      VStack {
+        GeometryReader { geometry in
+          ZStack {
+
+            MeshGradient(
+              width: columns,
+              height: rows,
+              points: world.renderableBodies,
+              colors: world.renderableBodies.indices.map { index in
+                // let body = world.renderableBodies[index]
+                let col = index % columns
+                let row = index / columns
+                return colors.getColor(atColumn: col, row: row)
+              },
+            )
+
+            if world.ready && showCanvas {
+              Canvas { context, size in
+                for wall in world.walls {
+                  WallView(
+                    context: &context,
+                    start: world.coords.toScreen(wall.start),
+                    end: world.coords.toScreen(wall.end),
+                  )
+                }
+
+                // Render static bodies
+                for staticBody in world.immovables {
+                  StaticBodyView(
+                    context: &context,
+                    position: world.coords.toScreen(staticBody.position),
+                    radius: world.coords.toScreen(staticBody.radius)
+                  )
+                }
+
+                for moveable in world.movables {
+                  MoveableView(
+                    context: &context,
+                    position: world.coords.toScreen(moveable.position),
+                    radius: world.coords.toScreen(moveable.radius),
+                    anchorPoint:
+                      world.coords.toScreen(moveable.anchorPosition),
+                    isTaut: moveable.isTaut,
+                    isBeingDragged: world.isBodyBeingDragged(moveable.bodyId),
+                  )
+                }
+
+                // Render all magnets
+                for magnet in world.magnets {
+                  MagnetView(
+                    context: &context,
+                    position: world.coords.toScreen(magnet.position),
+                    radius: world.coords.toScreen(magnet.radius),
+                    forceDistance: world.coords.toScreen(magnet.maxForceDistance),
+                    isBeingDragged: world.isBodyBeingDragged(magnet.bodyId)
+                  )
+                }
+              }
+              .gesture(
+                DragGesture(minimumDistance: 0)
+                  .onChanged { value in
+                    world.onDragMove(to: value.location)
+                  }
+                  .onEnded { value in
+                    world.onDragEnd()
+                  }
+              )
+            }
+          }
+          .onAppear {
+            world.start(
+              columns: columns,
+              rows: rows,
+              screenSize: geometry.size
+            )
+
+            print(self.colors)
+          }
+          .onChange(of: geometry.size) { _, newSize in
+            world.onResize(newSize)
+          }
+          .task {
+            while !Task.isCancelled {
+              world.step()
+
+              do {
+                let interval = Duration.milliseconds(Int64(world.timeStep * 1000))
+                try await clock.sleep(for: interval)
+              } catch {
+                print("Clock sleep interrupted: \(error)")
+                break
+              }
+            }
+          }
+        }
+
+        // Controls
+        HStack {
+          Button(action: {
+            world.toggleMagnetActive()
+          }) {
+            Text(world.magnetIsWandering ? "Stop Magnet" : "Start Magnet")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
+
+          Button(action: {
+            showCanvas.toggle()
+          }) {
+            Text(showCanvas ? "Hide Canvas" : "Show Canvas")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
+        }
+        .padding()
+      }
     }
   }
 
@@ -168,141 +297,6 @@ extension MagneticWanderer {
         with: .color(.red.opacity(0.3)),
         style: StrokeStyle(lineWidth: 2, dash: [5, 5])
       )
-    }
-  }
-
-  struct AnimatedMesh: View {
-    let columns = 4
-    let rows = 4
-    @StateObject private var world = PhysicsSimulation()
-    @State private var clock: any Clock<Duration>
-    @State private var showCanvas: Bool = false
-
-    init(clock: any Clock<Duration> = ContinuousClock()) {
-      self.clock = clock
-    }
-
-    var body: some View {
-      VStack {
-        GeometryReader { geometry in
-          ZStack {
-
-            let colors = ColorGrid(
-              columns: columns,
-              rows: rows
-            )
-            MeshGradient(
-              width: columns,
-              height: rows,
-              points: world.renderableBodies,
-              colors: world.renderableBodies.indices.map { index in
-                // let body = world.renderableBodies[index]
-                let col = index % columns
-                let row = index / columns
-                return colors.getColor(atColumn: col, row: row)
-              },
-            )
-
-            if world.ready && showCanvas {
-              Canvas { context, size in
-                for wall in world.walls {
-                  WallView(
-                    context: &context,
-                    start: world.coords.toScreen(wall.start),
-                    end: world.coords.toScreen(wall.end),
-                  )
-                }
-
-                // Render static bodies
-                for staticBody in world.immovables {
-                  StaticBodyView(
-                    context: &context,
-                    position: world.coords.toScreen(staticBody.position),
-                    radius: world.coords.toScreen(staticBody.radius)
-                  )
-                }
-
-                for moveable in world.movables {
-                  MoveableView(
-                    context: &context,
-                    position: world.coords.toScreen(moveable.position),
-                    radius: world.coords.toScreen(moveable.radius),
-                    anchorPoint:
-                      world.coords.toScreen(moveable.anchorPosition),
-                    isTaut: moveable.isTaut,
-                    isBeingDragged: world.isBodyBeingDragged(moveable.bodyId),
-                  )
-                }
-
-                // Render all magnets
-                for magnet in world.magnets {
-                  MagnetView(
-                    context: &context,
-                    position: world.coords.toScreen(magnet.position),
-                    radius: world.coords.toScreen(magnet.radius),
-                    forceDistance: world.coords.toScreen(magnet.maxForceDistance),
-                    isBeingDragged: world.isBodyBeingDragged(magnet.bodyId)
-                  )
-                }
-              }
-              .gesture(
-                DragGesture(minimumDistance: 0)
-                  .onChanged { value in
-                    world.onDragMove(to: value.location)
-                  }
-                  .onEnded { value in
-                    world.onDragEnd()
-                  }
-              )
-            }
-          }
-          .onAppear {
-            world.start(
-              columns: columns,
-              rows: rows,
-              screenSize: geometry.size
-            )
-          }
-          .onChange(of: geometry.size) { _, newSize in
-            world.onResize(newSize)
-          }
-          .task {
-            while !Task.isCancelled {
-              world.step()
-
-              do {
-                let interval = Duration.milliseconds(Int64(world.timeStep * 1000))
-                try await clock.sleep(for: interval)
-              } catch {
-                print("Clock sleep interrupted: \(error)")
-                break
-              }
-            }
-          }
-        }
-
-        // Controls
-        HStack {
-          Button(action: {
-            world.toggleMagnetActive()
-          }) {
-            Text(world.magnetIsWandering ? "Stop Magnet" : "Start Magnet")
-              .padding(.horizontal, 16)
-              .padding(.vertical, 8)
-          }
-          .buttonStyle(.borderedProminent)
-
-          Button(action: {
-            showCanvas.toggle()
-          }) {
-            Text(showCanvas ? "Hide Canvas" : "Show Canvas")
-              .padding(.horizontal, 16)
-              .padding(.vertical, 8)
-          }
-          .buttonStyle(.borderedProminent)
-        }
-        .padding()
-      }
     }
   }
 }
