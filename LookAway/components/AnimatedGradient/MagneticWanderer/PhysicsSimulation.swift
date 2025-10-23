@@ -56,6 +56,14 @@ extension MagneticWanderer {
     func toWorld(_ screenValue: CGFloat) -> Float {
       Float(screenValue) / renderScale
     }
+
+    /// Convert a percentage-based position (0.0 - 1.0) to world position
+    func toWorld(asPercent: CGPoint) -> b2Vec2 {
+      b2Vec2(
+        x: Float(asPercent.x) * worldBounds.x,
+        y: Float(asPercent.y) * worldBounds.y
+      )
+    }
   }
 
   class PhysicsSimulation: ObservableObject {
@@ -133,18 +141,18 @@ extension MagneticWanderer {
           let x = cols == 1 ? 0.5 : CGFloat(col) / CGFloat(cols - 1)
           let y = rowsCount == 1 ? 0.5 : CGFloat(row) / CGFloat(rowsCount - 1)
 
-          let position = b2Vec2(
-            x: coords.worldBounds.x * Float(x),
-            y: coords.worldBounds.y * Float(y)
-          )
+          let position = coords.toWorld(asPercent: CGPoint(x: x, y: y))
 
           // Determine body type based on position
-          let isCorner = (col == 0 || col == columns - 1) && (row == 0 || row == rows - 1)
-          let isOnLeftOrRight = col == 0 || col == columns - 1
-          let isOnTopOrBottom = row == 0 || row == rows - 1
-          let isEdge = (isOnLeftOrRight || isOnTopOrBottom) && !isCorner
+          let type = GridHelper.edgeType(
+            column: col,
+            row: row,
+            columns: columns,
+            rows: rows
+          )
 
-          if isCorner {
+          switch type {
+          case .corner:
             // Create static body for corners
             immovables.append(
               Body(
@@ -153,30 +161,33 @@ extension MagneticWanderer {
                 radius: 0.3
               )
             )
-          } else if isEdge {
-            // Create edge body constrained to move along the wall
-            // Determine axis based on which edge
-            let axis: b2Vec2
-            if isOnTopOrBottom {
-              // Top or bottom edge: can move horizontally
-              axis = b2Vec2(x: 1, y: 0)
-            } else {
-              // Left or right edge: can move vertically
-              axis = b2Vec2(x: 0, y: 1)
-            }
-
+          case .top, .bottom:
             movables.append(
               EdgeBody(
                 world: world,
                 groundBody: groundBody,
                 position: position,
-                axis: axis,
+                // Top or bottom edge: can move horizontally
+                axis: b2Vec2(x: 1, y: 0),
                 radius: 0.3,
                 density: 0.3,
                 slackLength: slackLength
               )
             )
-          } else {
+          case .left, .right:
+            movables.append(
+              EdgeBody(
+                world: world,
+                groundBody: groundBody,
+                position: position,
+                // Left or right edge: can move vertically
+                axis: b2Vec2(x: 0, y: 1),
+                radius: 0.3,
+                density: 0.3,
+                slackLength: slackLength
+              )
+            )
+          case .inner:
             // Create dynamic spring body for interior positions
             movables.append(
               SpringBody(

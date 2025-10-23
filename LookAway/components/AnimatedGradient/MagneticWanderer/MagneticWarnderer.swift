@@ -186,83 +186,90 @@ extension MagneticWanderer {
     }
 
     var body: some View {
-      GeometryReader { geometry in
-        ZStack {
-          if world.ready {
-            Canvas { context, size in
-              for wall in world.walls {
-                WallView(
-                  context: &context,
-                  start: world.coords.toScreen(wall.start),
-                  end: world.coords.toScreen(wall.end),
-                )
-              }
+      VStack {
+        GeometryReader { geometry in
+          ZStack {
+            if world.ready {
+              Canvas { context, size in
+                for wall in world.walls {
+                  WallView(
+                    context: &context,
+                    start: world.coords.toScreen(wall.start),
+                    end: world.coords.toScreen(wall.end),
+                  )
+                }
 
-              // Render static bodies
-              for staticBody in world.immovables {
-                StaticBodyView(
-                  context: &context,
-                  position: world.coords.toScreen(staticBody.position),
-                  radius: world.coords.toScreen(staticBody.radius)
-                )
-              }
+                // Render static bodies
+                for staticBody in world.immovables {
+                  StaticBodyView(
+                    context: &context,
+                    position: world.coords.toScreen(staticBody.position),
+                    radius: world.coords.toScreen(staticBody.radius)
+                  )
+                }
 
-              for moveable in world.movables {
-                MoveableView(
-                  context: &context,
-                  position: world.coords.toScreen(moveable.position),
-                  radius: world.coords.toScreen(moveable.radius),
-                  anchorPoint:
-                    world.coords.toScreen(moveable.anchorPosition),
-                  isTaut: moveable.isTaut,
-                  isBeingDragged: world.isBodyBeingDragged(moveable.bodyId),
-                )
-              }
+                for moveable in world.movables {
+                  MoveableView(
+                    context: &context,
+                    position: world.coords.toScreen(moveable.position),
+                    radius: world.coords.toScreen(moveable.radius),
+                    anchorPoint:
+                      world.coords.toScreen(moveable.anchorPosition),
+                    isTaut: moveable.isTaut,
+                    isBeingDragged: world.isBodyBeingDragged(moveable.bodyId),
+                  )
+                }
 
-              if !world.magnets.isEmpty {
-                MagnetView(
-                  context: &context,
-                  // TODO Update the magnets to return their screen values
-                  position: world.coords.toScreen(world.magnets[0].position),
-                  radius: world.coords.toScreen(world.magnets[0].radius),
-                  forceDistance: world.coords.toScreen(world.magnets[0].maxForceDistance),
-                  isBeingDragged: world.isBodyBeingDragged(world.magnets[0].bodyId),
-                )
+                if !world.magnets.isEmpty {
+                  MagnetView(
+                    context: &context,
+                    // TODO Update the magnets to return their screen values
+                    position: world.coords.toScreen(world.magnets[0].position),
+                    radius: world.coords.toScreen(world.magnets[0].radius),
+                    forceDistance: world.coords.toScreen(world.magnets[0].maxForceDistance),
+                    isBeingDragged: world.isBodyBeingDragged(world.magnets[0].bodyId),
+                  )
+                }
               }
+              .gesture(
+                DragGesture(minimumDistance: 0)
+                  .onChanged { value in
+                    world.onDragMove(to: value.location)
+                  }
+                  .onEnded { value in
+                    world.onDragEnd()
+                  }
+              )
             }
-            .gesture(
-              DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                  world.onDragMove(to: value.location)
-                }
-                .onEnded { value in
-                  world.onDragEnd()
-                }
+          }
+          .onAppear {
+            world.start(
+              columns: columns,
+              rows: rows,
+              screenSize: geometry.size
             )
           }
-        }
-        .onAppear {
-          world.start(
-            columns: columns,
-            rows: rows,
-            screenSize: geometry.size
-          )
-        }
-        .onChange(of: geometry.size) { _, newSize in
-          world.onResize(newSize)
-        }
-        .task {
-          while !Task.isCancelled {
-            world.step()
+          .onChange(of: geometry.size) { _, newSize in
+            world.onResize(newSize)
+          }
+          .task {
+            while !Task.isCancelled {
+              world.step()
 
-            do {
-              let interval = Duration.milliseconds(Int64(world.timeStep * 1000))
-              try await clock.sleep(for: interval)
-            } catch {
-              print("Clock sleep interrupted: \(error)")
-              break
+              do {
+                let interval = Duration.milliseconds(Int64(world.timeStep * 1000))
+                try await clock.sleep(for: interval)
+              } catch {
+                print("Clock sleep interrupted: \(error)")
+                break
+              }
             }
           }
+        }
+
+        // Controls
+        HStack {
+
         }
       }
     }
