@@ -43,6 +43,13 @@ extension MagneticWanderer {
       )
     }
 
+    func toScreen(asPercent worldPos: b2Vec2) -> CGPoint {
+      CGPoint(
+        x: CGFloat(worldPos.x / worldBounds.x),
+        y: CGFloat(worldPos.y / worldBounds.y)
+      )
+    }
+
     /// Convert screen position to physics position
     func toWorld(_ screenPos: CGPoint) -> b2Vec2 {
       b2Vec2(
@@ -68,10 +75,10 @@ extension MagneticWanderer {
   class PhysicsSimulation: ObservableObject {
     private let magnetRadius: Float = 0.3
     private var magnetForceDistance: Float = 1.0
-    private var magnetStrength: Float = 0.5
+    private var magnetStrength: Float = 1.5
+    @Published var magnetIsWandering: Bool = true
 
     private(set) var ready: Bool = false
-    @Published var magnetIsActive: Bool = true
 
     let timeStep: Float = 1.0 / 60.0  // 60 FPS
     /// More substeps for better constraint solving
@@ -87,19 +94,27 @@ extension MagneticWanderer {
     private var world: b2WorldId
     private var groundBody: b2BodyId  // Static ground body for joints
 
+    /// Corner bodies
     private(set) var immovables: [Body] = []
+    /// Edge and inner bodies
     private(set) var movables: [SpringBody] = []
     private(set) var walls: [PhysicsWall] = []
     private(set) var magnets: [Magnet] = []
+
+    /// All grid bodies in row-major order (for MeshGradient rendering)
+    private(set) var gridBodies: [Body] = []
 
     /// The list of all draggable bodies in the world (excludes immovables).
     var draggableBodies: [MovableBody] {
       return movables + magnets
     }
 
-//    var renderableBodies: [Body] {
-//      return movables + immovables
-//    }
+    var renderableBodies: [SIMD2<Float>] {
+      return gridBodies.map {
+        let pos = coords.toScreen(asPercent: $0.position)
+        return SIMD2<Float>(Float(pos.x), Float(pos.y))
+      }
+    }
 
     /// Used to synchronize drag events with physics world locking.
     /// The box2d world locks itself during the step function and throws if
@@ -134,15 +149,17 @@ extension MagneticWanderer {
       // Calculate slack length in world/physics space
       let slackLength = coords.worldBounds.x / Float(columns)
 
-      // Create bodies for the grid.
-      for col in 0..<columns {
-        for row in 0..<rows {
+      // Create bodies for the grid in row-major order (top to bottom, left to right)
+      for row in 0..<rows {
+        for col in 0..<columns {
           let cols = GridHelper.identity(columns)
           let rowsCount = GridHelper.identity(rows)
           let x = cols == 1 ? 0.5 : CGFloat(col) / CGFloat(cols - 1)
           let y = rowsCount == 1 ? 0.5 : CGFloat(row) / CGFloat(rowsCount - 1)
 
           let position = coords.toWorld(asPercent: CGPoint(x: x, y: y))
+          let angle = Float.random(in: 0...(2 * Float.pi))
+          let speed = Float.random(in: 0.1...4.0)
 
           // Determine body type based on position
           let type = GridHelper.edgeType(
@@ -155,59 +172,73 @@ extension MagneticWanderer {
           switch type {
           case .corner:
             // Create static body for corners
-            immovables.append(
-              Body(
-                world: world,
-                position: position,
-                radius: 0.3
-              )
+            let body = Body(
+              world: world,
+              position: position,
+              radius: 0.3
             )
+            immovables.append(body)
+            gridBodies.append(body)
           case .top, .bottom:
-            movables.append(
-              EdgeBody(
-                world: world,
-                groundBody: groundBody,
-                position: position,
-                // Top or bottom edge: can move horizontally
-                axis: b2Vec2(x: 1, y: 0),
-                radius: 0.3,
-                density: 0.3,
-                slackLength: slackLength
-              )
+            let body = EdgeBody(
+              world: world,
+              groundBody: groundBody,
+              position: position,
+              // Top or bottom edge: can move horizontally
+              axis: b2Vec2(x: 1, y: 0),
+              radius: 0.3,
+              density: 0.3,
+              slackLength: slackLength
             )
+            body.setVelocity(b2Vec2(x: cos(angle) * speed, y: sin(angle) * speed))
+            movables.append(body)
+            gridBodies.append(body)
           case .left, .right:
-            movables.append(
-              EdgeBody(
-                world: world,
-                groundBody: groundBody,
-                position: position,
-                // Left or right edge: can move vertically
-                axis: b2Vec2(x: 0, y: 1),
-                radius: 0.3,
-                density: 0.3,
-                slackLength: slackLength
-              )
+            let body = EdgeBody(
+              world: world,
+              groundBody: groundBody,
+              position: position,
+              // Left or right edge: can move vertically
+              axis: b2Vec2(x: 0, y: 1),
+              radius: 0.3,
+              density: 0.3,
+              slackLength: slackLength
             )
+            body.setVelocity(b2Vec2(x: cos(angle) * speed, y: sin(angle) * speed))
+            movables.append(body)
+            gridBodies.append(body)
           case .inner:
             // Create dynamic spring body for interior positions
-            movables.append(
-              SpringBody(
-                world: world,
-                position: position,
-                radius: 0.3,
-                density: 0.3,
-                slackLength: slackLength
-              )
+            let body = SpringBody(
+              world: world,
+              position: position,
+              radius: 0.3,
+              density: 0.3,
+              slackLength: slackLength
             )
+            body.setVelocity(b2Vec2(x: cos(angle) * speed, y: sin(angle) * speed))
+            movables.append(body)
+            gridBodies.append(body)
           }
         }
       }
 
       // Create our magnets.
-      self.magnetForceDistance = coords.worldBounds.x * 0.5
+      // magnetForceDistance is the radius (distance from center to edge of magnetic field)
+      // Set to 1/4 of the world width
+      self.magnetForceDistance = coords.worldBounds.x * 0.25
 
-      // Create two magnets at the center
-      for _ in 0..<2 {
+      // Create two magnets at the center with random but opposing directions
+      // First magnet gets a random direction
+      let firstAngle = Float.random(in: 0...(2 * Float.pi))
+
+      // Second magnet gets a direction that's between 90-270 degrees opposite
+      // Add π (180°) to flip direction, then add random offset of ±π/2 (±90°)
+      let secondAngle = firstAngle + Float.pi + Float.random(in: -Float.pi / 2...Float.pi / 2)
+
+      let angles: [Float] = [firstAngle, secondAngle]
+
+      for (index, angle) in angles.enumerated() {
         let magnetBody = Magnet(
           world: world,
           position: b2Vec2(
@@ -217,7 +248,8 @@ extension MagneticWanderer {
           radius: magnetRadius,
           density: magnetRadius * 4,
           magneticStrength: magnetStrength,
-          maxForceDistance: magnetForceDistance
+          maxForceDistance: magnetForceDistance,
+          wanderAngle: angle
         )
         magnets.append(magnetBody)
       }
@@ -238,7 +270,7 @@ extension MagneticWanderer {
       dragState.apply()
 
       // Update each magnet's wander behavior
-      if magnetIsActive {
+      if magnetIsWandering {
         for magnet in magnets {
           magnet.updateContacts(bodies: movables, timeStep: timeStep)
           let wanderForce = magnet.calculateWanderForce(
@@ -353,7 +385,7 @@ extension MagneticWanderer {
     }
 
     func toggleMagnetActive() {
-      magnetIsActive.toggle()
+      magnetIsWandering.toggle()
     }
 
     func cleanup() {}
@@ -417,8 +449,6 @@ extension MagneticWanderer {
       self.target = position
       self.bodyId = bodyId
       self.joint = b2CreateMouseJoint(world, &mouseDef)
-
-      print("Started drag joint for body \(bodyId) to position \(position)")
     }
 
     /// Updates the drag joint target position.
@@ -429,7 +459,6 @@ extension MagneticWanderer {
     /// Marks the drag joint for destruction. Should be called when the view stops dragging.
     func onDragEnd() {
       self.destroyed = true
-      print("Marked drag joint for destruction")
     }
 
     /// Applies the pending drag updates to the physics world.
@@ -454,7 +483,6 @@ extension MagneticWanderer {
       self.bodyId = nil
       self.destroyed = true
       self.target = nil
-      print("Destroyed drag joint")
     }
   }
 }

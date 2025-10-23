@@ -11,6 +11,13 @@ extension MagneticWanderer {
   }
 
   /// Base class for all bodies
+  ///
+  /// Hhierarchy:
+  /// - Body: Base class and used for corner bodies
+  ///   - MovableBody: Base calss for movable dynamic bodies
+  ///     - Magnet: Wandering magnets
+  ///     - SpringBody: Inner bodies
+  ///       - EdgeBody: Bodies constrained to wall edges
   class Body: CustomStringConvertible {
     let bodyId: b2BodyId
     let radius: Float
@@ -110,16 +117,16 @@ extension MagneticWanderer {
       b2Body_GetLinearVelocity(bodyId)
     }
 
+    func setVelocity(_ velocity: b2Vec2) {
+      b2Body_SetLinearVelocity(bodyId, velocity)
+    }
+
     func applyForce(_ force: b2Vec2) {
       b2Body_ApplyForceToCenter(bodyId, force, true)
     }
 
     func applyImpulse(_ impulse: b2Vec2) {
       b2Body_ApplyLinearImpulseToCenter(bodyId, impulse, true)
-    }
-
-    func setVelocity(_ velocity: b2Vec2) {
-      b2Body_SetLinearVelocity(bodyId, velocity)
     }
 
     func setPosition(_ position: b2Vec2) {
@@ -349,10 +356,12 @@ extension MagneticWanderer {
       friction: Float = 1.0,
       restitution: Float = 0.2,
       magneticStrength: Float = 0.5,
-      maxForceDistance: Float
+      maxForceDistance: Float,
+      wanderAngle: Float = 0.0
     ) {
       self.magneticStrength = magneticStrength
       self.maxForceDistance = maxForceDistance
+      self.wanderAngle = wanderAngle
 
       super.init(
         world: world,

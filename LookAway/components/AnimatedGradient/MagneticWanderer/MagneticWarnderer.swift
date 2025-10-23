@@ -154,16 +154,12 @@ extension MagneticWanderer {
         lineWidth: 1
       )
 
-      // TODO why do I need to halve this value? I would expect forceDistance
-      // to be the radius of the magnetic field already. We are correctly
-      // converting forceDistance to screen space before passing it to this
-      // view.
-      let force = forceDistance / 2.0
+      // forceDistance is the radius of the magnetic field (already in screen space)
       let forceRect = CGRect(
-        x: position.x - force,
-        y: position.y - force,
-        width: force * 2,
-        height: force * 2,
+        x: position.x - forceDistance,
+        y: position.y - forceDistance,
+        width: forceDistance * 2,
+        height: forceDistance * 2
       )
 
       // Magnetic field radius
@@ -180,6 +176,7 @@ extension MagneticWanderer {
     let rows = 4
     @StateObject private var world = PhysicsSimulation()
     @State private var clock: any Clock<Duration>
+    @State private var showCanvas: Bool = false
 
     init(clock: any Clock<Duration> = ContinuousClock()) {
       self.clock = clock
@@ -189,7 +186,24 @@ extension MagneticWanderer {
       VStack {
         GeometryReader { geometry in
           ZStack {
-            if world.ready {
+
+            let colors = ColorGrid(
+              columns: columns,
+              rows: rows
+            )
+            MeshGradient(
+              width: columns,
+              height: rows,
+              points: world.renderableBodies,
+              colors: world.renderableBodies.indices.map { index in
+                // let body = world.renderableBodies[index]
+                let col = index % columns
+                let row = index / columns
+                return colors.getColor(atColumn: col, row: row)
+              },
+            )
+
+            if world.ready && showCanvas {
               Canvas { context, size in
                 for wall in world.walls {
                   WallView(
@@ -265,13 +279,6 @@ extension MagneticWanderer {
               }
             }
           }
-
-//          MeshGradient(
-//            width: columns,
-//            height: rows,
-//            points: points.map { $0.simdPosition },
-//            colors: points.map { $0.color },
-//          )
         }
 
         // Controls
@@ -279,7 +286,16 @@ extension MagneticWanderer {
           Button(action: {
             world.toggleMagnetActive()
           }) {
-            Text(world.magnetIsActive ? "Stop Magnet" : "Start Magnet")
+            Text(world.magnetIsWandering ? "Stop Magnet" : "Start Magnet")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
+
+          Button(action: {
+            showCanvas.toggle()
+          }) {
+            Text(showCanvas ? "Hide Canvas" : "Show Canvas")
               .padding(.horizontal, 16)
               .padding(.vertical, 8)
           }
