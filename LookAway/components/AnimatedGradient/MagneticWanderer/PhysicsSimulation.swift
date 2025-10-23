@@ -208,13 +208,17 @@ extension MagneticWanderer {
             movables.append(body)
             gridBodies.append(body)
           case .inner:
-            // Create dynamic spring body for interior positions
-            let body = SpringBody(
+            // Create dynamic inner body for interior positions
+            let gridIndex = row * columns + col
+            let body = InnerBody(
               world: world,
               position: position,
               radius: 0.3,
               density: 0.3,
-              slackLength: slackLength
+              slackLength: slackLength,
+              gridIndex: gridIndex,
+              columns: columns,
+              rows: rows
             )
             body.setVelocity(b2Vec2(x: cos(angle) * speed, y: sin(angle) * speed))
             movables.append(body)
@@ -292,6 +296,13 @@ extension MagneticWanderer {
       // Apply spring constraints
       for body in movables {
         body.applySpringConstraint(timeStep: timeStep)
+      }
+
+      // Apply boundary constraints to inner bodies (fallback/safety net after springs)
+      for body in movables {
+        if let innerBody = body as? InnerBody {
+          innerBody.applyBoundaryConstraint(allBodies: gridBodies, timeStep: timeStep)
+        }
       }
 
       // Step the physics simulation forward

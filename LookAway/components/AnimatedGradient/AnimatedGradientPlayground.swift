@@ -1,10 +1,3 @@
-//
-//  AnimatedGradientPlayground.swift
-//  LookAway
-//
-//  Created by robert marc wren on 10/15/25.
-//
-
 import SwiftUI
 import simd
 

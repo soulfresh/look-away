@@ -1,4 +1,5 @@
 import box2d
+import simd
 
 extension MagneticWanderer {
   /// Collision filter categories for Box2D physics
@@ -12,12 +13,13 @@ extension MagneticWanderer {
 
   /// Base class for all bodies
   ///
-  /// Hhierarchy:
+  /// Hierarchy:
   /// - Body: Base class and used for corner bodies
-  ///   - MovableBody: Base calss for movable dynamic bodies
+  ///   - MovableBody: Base class for movable dynamic bodies
   ///     - Magnet: Wandering magnets
-  ///     - SpringBody: Inner bodies
-  ///       - EdgeBody: Bodies constrained to wall edges
+  ///     - SpringBody: Base class for spring-constrained bodies
+  ///       - InnerBody: Interior grid bodies with polygon boundary constraints
+  ///       - EdgeBody: Bodies constrained to wall edges with prismatic joints
   class Body: CustomStringConvertible {
     let bodyId: b2BodyId
     let radius: Float
@@ -166,15 +168,6 @@ extension MagneticWanderer {
         radius: radius,
         density: density,
       )
-
-      setShapeFilter(
-        category: CollisionCategory.interiorBody,
-        influencing: CollisionCategory.wall
-          | CollisionCategory.interiorBody
-          | CollisionCategory.magnet
-          | CollisionCategory.edgeBody
-          | CollisionCategory.staticBody
-      )
     }
 
     /// Calculate and apply spring constraint to keep body within slack length of anchor
@@ -245,6 +238,240 @@ extension MagneticWanderer {
       let dy = position.y - anchorPosition.y
       let length = sqrt(dx * dx + dy * dy)
       return length > slackLength
+    }
+  }
+
+  /// Inner grid body with spring constraint and polygon boundary constraint
+  class InnerBody: SpringBody {
+    /// Grid position metadata for boundary calculation
+    let gridIndex: Int
+    let columns: Int
+    let rows: Int
+
+    /// Pre-calculated boundary polygon indices (never changes, only positions change)
+    private let boundaryIndices: [Int]
+
+    override var description: String {
+      """
+      InnerBody(
+        r: \(radius)
+        density: \(density)
+        pos: \(position)
+        grid: (\(gridIndex % columns), \(gridIndex / columns))
+      )
+      """
+    }
+
+    init(
+      world: b2WorldId,
+      position: b2Vec2,
+      radius: Float,
+      density: Float = 1.0,
+      slackLength: Float = 1.0,
+      gridIndex: Int,
+      columns: Int,
+      rows: Int
+    ) {
+      self.gridIndex = gridIndex
+      self.columns = columns
+      self.rows = rows
+
+      // Pre-calculate boundary polygon indices (topology never changes)
+      let col = gridIndex % columns
+      let row = gridIndex / columns
+
+      let leftNeighbor = GridPoint(
+        column: col - 1,
+        row: row,
+        index: row * columns + (col - 1)
+      )
+      let leftDiagonal = GridHelper.diagonalLine(
+        through: leftNeighbor,
+        columns: columns,
+        rows: rows
+      )
+
+      let rightNeighbor = GridPoint(
+        column: col + 1,
+        row: row,
+        index: row * columns + (col + 1)
+      )
+      let rightDiagonal = GridHelper.diagonalLine(
+        through: rightNeighbor,
+        columns: columns,
+        rows: rows
+      )
+
+      // Construct the closed polygon: left diagonal (top→bottom) + right diagonal (bottom→top)
+      let boundaryGridPoints = leftDiagonal + rightDiagonal.reversed()
+      self.boundaryIndices = boundaryGridPoints.map { $0.index }
+
+      super.init(
+        world: world,
+        position: position,
+        radius: radius,
+        density: density,
+        slackLength: slackLength
+      )
+
+      // Set collision filter for interior bodies
+      setShapeFilter(
+        category: CollisionCategory.interiorBody,
+        influencing: CollisionCategory.wall
+          | CollisionCategory.interiorBody
+          | CollisionCategory.magnet
+          | CollisionCategory.edgeBody
+          | CollisionCategory.staticBody
+      )
+    }
+
+    /// Apply boundary constraint force to keep body within its diagonal polygon bounds.
+    /// Inner points are constrained to a polygon defined by diagonal bands running through
+    /// their left and right neighbors.
+    /// - Parameters:
+    ///   - allBodies: Array of all grid bodies in row-major order for neighbor lookup
+    ///   - timeStep: Physics time step for force calculations
+    /// - Returns: true if constraint force was applied, false if body is within bounds
+    func applyBoundaryConstraint(allBodies: [Body], timeStep: Float) -> Bool {
+      // Constraint parameters
+      let softZoneDistance: Float = 0.5  // Start applying force this far from boundary
+      let hardLimitDistance: Float = 0.8  // Maximum allowed penetration
+      let stiffness: Float = 20.0  // Base force multiplier
+      let exponentialFactor: Float = 3.0  // How aggressively force ramps up
+      let dampingRatio: Float = 0.7  // Velocity damping near boundary
+
+      // Convert pre-calculated boundary indices to actual positions
+      var polygon: [SIMD2<Float>] = []
+      for index in boundaryIndices {
+        guard index >= 0 && index < allBodies.count else { continue }
+        let bodyPos = allBodies[index].position
+        polygon.append(SIMD2<Float>(bodyPos.x, bodyPos.y))
+      }
+
+      // Need at least 3 points for a valid polygon
+      guard polygon.count >= 3 else { return false }
+
+      // Get current position as SIMD2
+      let currentPos = position
+      let p = SIMD2<Float>(currentPos.x, currentPos.y)
+
+      // Check if point is inside the polygon
+      let isInside = GridHelper.isInsidePoly(p, bounds: polygon)
+
+      if isInside {
+        // Check if we're in the soft zone (near boundary)
+        // Find distance to nearest edge
+        let distanceToBoundary = distanceToPolygonBoundary(p, polygon: polygon)
+
+        if distanceToBoundary < softZoneDistance {
+          // Apply soft force to slow down approach to boundary
+          let penetrationRatio = 1.0 - (distanceToBoundary / softZoneDistance)
+          let forceMagnitude = stiffness * pow(penetrationRatio, exponentialFactor)
+
+          // Calculate direction away from nearest boundary point
+          let nearestPoint = nearestPointOnPolygon(p, polygon: polygon)
+          let direction = normalize(p - nearestPoint)
+
+          // Apply force away from boundary
+          let force = b2Vec2(
+            x: direction.x * forceMagnitude,
+            y: direction.y * forceMagnitude
+          )
+          applyForce(force)
+
+          // Apply velocity damping
+          let currentVelocity = velocity
+          let dampedVelocity = b2Vec2(
+            x: currentVelocity.x * (1.0 - (1.0 - dampingRatio) * penetrationRatio),
+            y: currentVelocity.y * (1.0 - (1.0 - dampingRatio) * penetrationRatio)
+          )
+          setVelocity(dampedVelocity)
+
+          return true
+        }
+
+        return false
+      } else {
+        // Point is outside - clamp to boundary and apply strong restoring force
+        let nearestPoint = GridHelper.clampToPolyBounds(p, bounds: polygon)
+        let displacement = p - nearestPoint
+        let penetrationDepth = simd_length(displacement)
+
+        // Hard limit check
+        if penetrationDepth > hardLimitDistance {
+          // Teleport back to hard limit boundary
+          let direction = normalize(displacement)
+          let clampedPoint = nearestPoint + direction * hardLimitDistance
+          setPosition(b2Vec2(x: clampedPoint.x, y: clampedPoint.y))
+
+          // Zero out velocity component pointing away from polygon
+          let currentVelocity = velocity
+          let velocityVec = SIMD2<Float>(currentVelocity.x, currentVelocity.y)
+          let velocityDirection = normalize(velocityVec)
+
+          // If velocity points away from boundary, zero it
+          if simd_dot(velocityDirection, direction) > 0 {
+            setVelocity(b2Vec2(x: 0, y: 0))
+          }
+        }
+
+        // Apply exponential restoring force
+        let forceMagnitude = stiffness * exp(penetrationDepth * exponentialFactor)
+        let direction = normalize(nearestPoint - p)
+
+        let force = b2Vec2(
+          x: direction.x * forceMagnitude,
+          y: direction.y * forceMagnitude
+        )
+        applyForce(force)
+
+        // Apply strong velocity damping
+        let currentVelocity = velocity
+        let dampedVelocity = b2Vec2(
+          x: currentVelocity.x * dampingRatio,
+          y: currentVelocity.y * dampingRatio
+        )
+        setVelocity(dampedVelocity)
+
+        return true
+      }
+    }
+
+    /// Calculate distance from point to nearest edge of polygon
+    private func distanceToPolygonBoundary(_ p: SIMD2<Float>, polygon: [SIMD2<Float>]) -> Float {
+      var minDistance = Float.greatestFiniteMagnitude
+      for i in 0..<polygon.count {
+        let a = polygon[i]
+        let b = polygon[(i + 1) % polygon.count]
+        let closestPoint = GridHelper.projectPointToSegment(p, a: a, b: b)
+        let distance = simd_distance(p, closestPoint)
+        minDistance = min(minDistance, distance)
+      }
+      return minDistance
+    }
+
+    /// Find nearest point on polygon boundary to given point
+    private func nearestPointOnPolygon(_ p: SIMD2<Float>, polygon: [SIMD2<Float>]) -> SIMD2<Float> {
+      var minDistance = Float.greatestFiniteMagnitude
+      var nearest = polygon[0]
+      for i in 0..<polygon.count {
+        let a = polygon[i]
+        let b = polygon[(i + 1) % polygon.count]
+        let closestPoint = GridHelper.projectPointToSegment(p, a: a, b: b)
+        let distance = simd_distance(p, closestPoint)
+        if distance < minDistance {
+          minDistance = distance
+          nearest = closestPoint
+        }
+      }
+      return nearest
+    }
+
+    /// Normalize a vector, returning zero vector if length is too small
+    private func normalize(_ v: SIMD2<Float>) -> SIMD2<Float> {
+      let length = simd_length(v)
+      guard length > 0.0001 else { return SIMD2<Float>(0, 0) }
+      return v / length
     }
   }
 
