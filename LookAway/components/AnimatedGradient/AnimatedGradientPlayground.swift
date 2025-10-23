@@ -18,7 +18,7 @@ struct GridPoint: CustomStringConvertible {
   }
 }
 
-struct MeshGridHelper {
+struct GridHelper {
   /// Determine if the given index would represent a point that is not on the
   /// edge of the grid defined by the number of columns and rows.
   static func isInnerPoint(index: Int, columns: Int, rows: Int) -> Bool {
@@ -140,11 +140,15 @@ struct MeshGridHelper {
 
   /// Compute number of rows from point count and column count. Returns nil if invalid
   /// (e.g. columns <= 0 or pointsCount not divisible by columns).
-  static func rows(forPointCount count: Int, columns: Int) -> Int? {
-    guard columns > 0, count % columns == 0 else { return nil }
+  static func rows(forPointCount count: Int, columns: Int) -> Int {
+    guard columns > 0, count % columns == 0 else { return 0 }
     return count / columns
   }
-  
+
+  static func innerPointCount(columns: Int, rows: Int) -> Int {
+    max(0, columns - 2) * max(0, rows - 2)
+  }
+
   /// Compute the most rightward diagonal line possible that runs through
   /// the given grid point. Returns an array of GridPoint structs representing
   /// the line.
@@ -168,7 +172,7 @@ struct MeshGridHelper {
         )
       )
     }
-    
+
     return line
   }
 }
@@ -224,7 +228,7 @@ struct EdgePoint: PointBehavior {
   let upperNeighborIndex: Int?
 
   init(index: Int, columns: Int, points: [MeshPoint]) {
-    let rows = MeshGridHelper.rows(forPointCount: points.count, columns: columns) ?? 1
+    let rows = GridHelper.rows(forPointCount: points.count, columns: columns) ?? 1
     let col = index % columns
     let row = index / columns
 
@@ -319,7 +323,7 @@ struct InnerPoint: PointBehavior {
   init(index: Int, columns: Int, points: [MeshPoint]) {
     // Arithmetic-based diagonal calculation using d = c - r
     // Assumes this initializer is only used for true inner points and columns >= 3.
-    let rows = MeshGridHelper.rows(forPointCount: points.count, columns: columns) ?? 1
+    let rows = GridHelper.rows(forPointCount: points.count, columns: columns) ?? 1
     let col = index % columns
     let row = index / columns
 
@@ -328,7 +332,7 @@ struct InnerPoint: PointBehavior {
       row: row,
       index: (row * columns) + (col - 1)
     )
-    self.leftDiagonal = MeshGridHelper.diagonalLine(
+    self.leftDiagonal = GridHelper.diagonalLine(
       through: self.leftNeighbor,
       columns: columns,
       rows: rows
@@ -339,7 +343,7 @@ struct InnerPoint: PointBehavior {
       row: row,
       index: (row * columns) + (col + 1)
     )
-    self.rightDiagonal = MeshGridHelper.diagonalLine(
+    self.rightDiagonal = GridHelper.diagonalLine(
       through: self.rightNeighbor,
       columns: columns,
       rows: rows
@@ -366,21 +370,21 @@ struct InnerPoint: PointBehavior {
     guard polygon.count >= 3 else { return p }
 
     // Check if point is inside the polygon
-    if MeshGridHelper.isInsidePoly(p, bounds: polygon) {
+    if GridHelper.isInsidePoly(p, bounds: polygon) {
       return p
     }
 
     // Point is outside, clamp to nearest boundary
-    return MeshGridHelper.clampToPolyBounds(p, bounds: polygon)
+    return GridHelper.clampToPolyBounds(p, bounds: polygon)
   }
 }
 
 func makeBehavior(for index: Int, columns: Int, currentPoints: [MeshPoint]) -> AnyPoint {
-  let rows = MeshGridHelper.rows(forPointCount: currentPoints.count, columns: columns) ?? 1
-  if MeshGridHelper.isCornerPoint(index: index, columns: columns, rows: rows) {
+  let rows = GridHelper.rows(forPointCount: currentPoints.count, columns: columns) ?? 1
+  if GridHelper.isCornerPoint(index: index, columns: columns, rows: rows) {
     return AnyPoint(CornerPoint())
   }
-  if MeshGridHelper.isInnerPoint(index: index, columns: columns, rows: rows) {
+  if GridHelper.isInnerPoint(index: index, columns: columns, rows: rows) {
     return AnyPoint(InnerPoint(index: index, columns: columns, points: currentPoints))
   }
   return AnyPoint(EdgePoint(index: index, columns: columns, points: currentPoints))
@@ -402,8 +406,8 @@ struct AnimatedGradientPlayground: View {
     var generatedPoints: [MeshPoint] = []
     for row in 0..<rows {
       for col in 0..<columns {
-        let cols = MeshGridHelper.identity(columns)
-        let rowsCount = MeshGridHelper.identity(rows)
+        let cols = GridHelper.identity(columns)
+        let rowsCount = GridHelper.identity(rows)
         let x = cols == 1 ? 0.5 : CGFloat(col) / CGFloat(cols - 1)
         let y = rowsCount == 1 ? 0.5 : CGFloat(row) / CGFloat(rowsCount - 1)
         //        let isCenter = MeshGridHelper.isCenterPoint(
@@ -452,18 +456,18 @@ struct MeshDebugOverlay: View {
   }
 
   func isCenterPoint(index: Int) -> Bool {
-    MeshGridHelper.isInnerPoint(index: index, columns: columns, rows: rows)
+    GridHelper.isInnerPoint(index: index, columns: columns, rows: rows)
   }
 
   var body: some View {
     GeometryReader { geo in
       ZStack {
         ForEach(Array(points.enumerated()), id: \.offset) { pointIndex, point in
-          let isCorner = MeshGridHelper.isCornerPoint(
+          let isCorner = GridHelper.isCornerPoint(
             index: pointIndex, columns: columns, rows: rows)
 
           // Draw lines from this point to all immediate neighbors (including diagonals)
-          let neighbors = MeshGridHelper.neighborIndices(
+          let neighbors = GridHelper.neighborIndices(
             for: pointIndex, columns: columns, rows: rows)
           Path { path in
             let from = CGPoint(
