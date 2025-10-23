@@ -12,16 +12,48 @@ extension MagneticWanderer {
     @StateObject private var world = PhysicsSimulation()
     @State private var clock: any Clock<Duration>
     @State private var showCanvas: Bool = false
-    @State private var colors: MultiColorGrid
+    @State private var colors: ColorGrid
+
+    static func pickColorStyle(columns: Int, rows: Int) -> ColorGrid {
+      let style = Int.random(in: 0...2)
+      switch style {
+      case 0:
+        return BlobColorGrid(
+          columns: columns,
+          rows: rows,
+          blobCount: Int.random(in: 1...2),
+          backgroundColor: Color(
+            hue: Double.random(in: 0...1),
+            saturation: Double.random(in: 0.1...0.3),
+            brightness: Double.random(in: 0.5...0.9),
+          ),
+        )
+      case 1:
+        return BlobColorGrid(
+          columns: columns,
+          rows: rows,
+          blobCount: Int.random(in: 1...2),
+          backgroundColor: Color(
+            hue: Double.random(in: 0...1),
+            saturation: Double.random(in: 0.2...0.5),
+            brightness: Double.random(in: 0.1...0.2),
+          ),
+          saturation: 0.1...0.3,
+          brightness: 0.2...0.5,
+        )
+      default:
+        return MultiColorGrid(
+          columns: columns,
+          rows: rows,
+          colorCount: Int.random(in: 2...3),
+          rotationDegrees: Double.random(in: 0...360)
+        )
+      }
+    }
 
     init(clock: any Clock<Duration> = ContinuousClock()) {
       self.clock = clock
-      self.colors = MultiColorGrid(
-        columns: columns,
-        rows: rows,
-        colorCount: Int.random(in: 2...3),
-        rotationDegrees: Double.random(in: 0...360)
-      )
+      self.colors = AnimatedMesh.pickColorStyle(columns: columns, rows: rows)
     }
 
     func copyColorsToClipboard() {

@@ -4,6 +4,7 @@ extension MagneticWanderer {
 
   protocol ColorGrid {
     func getColor(atColumn column: Int, row: Int) -> Color
+    var colorList: String { get }
   }
 
   /// Helper functions for color manipulation
@@ -75,6 +76,14 @@ extension MagneticWanderer {
       return Color(red: Double(r), green: Double(g), blue: Double(b), opacity: Double(a))
     }
 
+    /// Generate a random color in HSB space with specified saturation
+    /// - Parameter saturation: Saturation value (0.0 to 1.0)
+    /// - Returns: Random color with the given saturation
+    static func randomColor(saturation: Double) -> Color {
+      let hue = Double.random(in: 0...1)
+      return Color(hue: hue, saturation: saturation, brightness: 0.8)
+    }
+
     /// Calculate interpolation factor (t) for a position with rotation applied
     /// - Parameters:
     ///   - column: Column index
@@ -135,6 +144,10 @@ extension MagneticWanderer {
       self.rotationDegrees = rotationDegrees
     }
 
+    var colorList: String {
+      return "Rainbow (full spectrum)"
+    }
+
     func getColor(atColumn column: Int, row: Int) -> Color {
       // Get interpolation factor with rotation applied
       let t = ColorHelper.rotatedInterpolation(
@@ -160,6 +173,138 @@ extension MagneticWanderer {
       let saturation = 0.5 + perpendicularT * 0.5
 
       return Color(hue: hue, saturation: saturation, brightness: 0.8)
+    }
+  }
+
+  /// A grid that colors the grid a solid background color and then
+  /// places random colors in groups ("blobs") around the grid. The blobs can
+  /// be 1 or more neighboring points in our grid. The position of the blobs
+  /// and the number of blobs are random.
+  ///
+  /// For example, we might have a 4x4 white grid with a black blob at the
+  /// points (1,1), (1,2), and (2,1).
+  struct BlobColorGrid: ColorGrid {
+    let columns: Int
+    let rows: Int
+    let background: Color
+
+    // Dictionary mapping (column, row) to color
+    private let colorMap: [String: Color]
+
+    // Store blob colors for colorList
+    private let blobColors: [Color]
+
+    init(
+      columns: Int,
+      rows: Int,
+      blobCount: Int = 1,
+      backgroundColor: Color = .white,
+      saturation saturationRange: ClosedRange<Double> = 0.5...0.8,
+      brightness brightnessRange: ClosedRange<Double> = 0.7...0.8,
+    ) {
+      self.columns = columns
+      self.rows = rows
+      self.background = backgroundColor
+
+      var map: [String: Color] = [:]
+
+      // Generate random colors for blobs (with minimum hue separation)
+      var hues: [Double] = []
+      let minHueDifference = 10.0 / 360.0
+
+      for _ in 0..<blobCount {
+        var hue: Double
+        var attempts = 0
+        let maxAttempts = 100
+
+        repeat {
+          hue = Double.random(in: 0...1)
+          attempts += 1
+
+          let isFarEnough = hues.allSatisfy { existingHue in
+            let diff = Swift.abs(hue - existingHue)
+            let wrappedDiff = min(diff, 1.0 - diff)
+            return wrappedDiff >= minHueDifference
+          }
+
+          if isFarEnough || attempts >= maxAttempts {
+            hues.append(hue)
+            break
+          }
+        } while true
+      }
+
+      let colors = hues.map { hue in
+        let saturation = Double.random(in: saturationRange)
+        return Color(
+          hue: hue,
+          saturation: saturation,
+          brightness: Double.random(in: brightnessRange)
+        )
+      }
+
+      self.blobColors = colors
+
+      // Create blobs
+      for blobIndex in 0..<blobCount {
+        let blobColor = colors[blobIndex]
+
+        // Pick random starting point
+        // First blob starts from inner points only, others can start anywhere
+        var currentCol: Int
+        var currentRow: Int
+
+        if blobIndex == 0 {
+          // Inner points only (excluding edges)
+          currentCol = Int.random(in: 1..<max(2, columns - 1))
+          currentRow = Int.random(in: 1..<max(2, rows - 1))
+        } else {
+          // Any point
+          currentCol = Int.random(in: 0..<columns)
+          currentRow = Int.random(in: 0..<rows)
+        }
+
+        // Pick random number of points to fill (1 to 4 points per blob)
+        let pointsToFill = Int.random(in: 1...4)
+
+        for _ in 0..<pointsToFill {
+          // Color current point
+          let key = "\(currentCol),\(currentRow)"
+          map[key] = blobColor
+
+          // Pick a random neighboring point for next iteration
+          // Neighbors: up, down, left, right
+          let neighbors = [
+            (currentCol, currentRow - 1),  // up
+            (currentCol, currentRow + 1),  // down
+            (currentCol - 1, currentRow),  // left
+            (currentCol + 1, currentRow),  // right
+          ]
+
+          // Filter to valid neighbors within grid bounds
+          let validNeighbors = neighbors.filter { col, row in
+            col >= 0 && col < columns && row >= 0 && row < rows
+          }
+
+          // Pick random valid neighbor (or stay at current if no valid neighbors)
+          if let neighbor = validNeighbors.randomElement() {
+            currentCol = neighbor.0
+            currentRow = neighbor.1
+          }
+        }
+      }
+
+      self.colorMap = map
+    }
+
+    var colorList: String {
+      let allColors = [background] + blobColors
+      return "\(allColors.map { $0.description }.joined(separator: ", "))"
+    }
+
+    func getColor(atColumn column: Int, row: Int) -> Color {
+      let key = "\(column),\(row)"
+      return colorMap[key] ?? background
     }
   }
 
@@ -265,6 +410,7 @@ extension MagneticWanderer {
       return ColorHelper.interpolateRGB(from: color1, to: color2, t: segmentT)
     }
   }
+
 }
 
 let COLOR_COMBINATIONS = [
