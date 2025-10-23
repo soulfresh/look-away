@@ -159,7 +159,7 @@ extension MagneticWanderer {
 
           let position = coords.toWorld(asPercent: CGPoint(x: x, y: y))
           let angle = Float.random(in: 0...(2 * Float.pi))
-          let speed = Float.random(in: 0.1...4.0)
+          let speed = Float.random(in: 2.0...4.0)
 
           // Determine body type based on position
           let type = GridHelper.edgeType(

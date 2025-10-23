@@ -12,16 +12,26 @@ extension MagneticWanderer {
     @StateObject private var world = PhysicsSimulation()
     @State private var clock: any Clock<Duration>
     @State private var showCanvas: Bool = false
-    @State private var colors: ColorGrid
+    @State private var colors: MultiColorGrid
 
     init(clock: any Clock<Duration> = ContinuousClock()) {
       self.clock = clock
       self.colors = MultiColorGrid(
         columns: columns,
         rows: rows,
-        colorCount: 2,
+        colorCount: Int.random(in: 2...3),
         rotationDegrees: Double.random(in: 0...360)
       )
+    }
+
+    func copyColorsToClipboard() {
+      #if os(macOS)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(colors.colorList, forType: .string)
+      #elseif os(iOS)
+        UIPasteboard.general.string = colors.description
+      #endif
     }
 
     var body: some View {
@@ -100,8 +110,6 @@ extension MagneticWanderer {
               rows: rows,
               screenSize: geometry.size
             )
-
-            print(self.colors)
           }
           .onChange(of: geometry.size) { _, newSize in
             world.onResize(newSize)
@@ -136,6 +144,15 @@ extension MagneticWanderer {
             showCanvas.toggle()
           }) {
             Text(showCanvas ? "Hide Canvas" : "Show Canvas")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
+
+          Button(action: {
+            copyColorsToClipboard()
+          }) {
+            Text("Copy Colors")
               .padding(.horizontal, 16)
               .padding(.vertical, 8)
           }

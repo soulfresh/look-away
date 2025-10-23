@@ -180,15 +180,46 @@ extension MagneticWanderer {
         "MultiColorGrid(colors: \(colors), rotationDegrees: \(rotationDegrees))"
     }
 
+    var colorList: String {
+      return "\(colors.map { $0.description }.joined(separator: ", "))"
+    }
+
     init(columns: Int, rows: Int, colorCount: Int = 3, rotationDegrees: Double = 0) {
       self.columns = columns
       self.rows = rows
       self.rotationDegrees = rotationDegrees
 
-      // Generate random colors with varying hue and saturation
-      self.colors = (0..<colorCount).map { _ in
-        let hue = Double.random(in: 0...1)
-        let saturation = Double.random(in: 0.5...1.0)
+      // Generate random colors with hues at least 10 degrees apart
+      var hues: [Double] = []
+      let minHueDifference = 10.0 / 360.0  // 10 degrees as fraction of full circle
+
+      for _ in 0..<colorCount {
+        var hue: Double
+        var attempts = 0
+        let maxAttempts = 100
+
+        repeat {
+          hue = Double.random(in: 0...1)
+          attempts += 1
+
+          // Check if this hue is far enough from all existing hues
+          let isFarEnough = hues.allSatisfy { existingHue in
+            let diff = Swift.abs(hue - existingHue)
+            // Account for wraparound (e.g., 0.99 and 0.01 are close)
+            let wrappedDiff = min(diff, 1.0 - diff)
+            return wrappedDiff >= minHueDifference
+          }
+
+          if isFarEnough || attempts >= maxAttempts {
+            hues.append(hue)
+            break
+          }
+        } while true
+      }
+
+      // Create colors from the selected hues
+      self.colors = hues.map { hue in
+        let saturation = Double.random(in: 0.5...0.8)
         return Color(hue: hue, saturation: saturation, brightness: 0.8)
       }
     }
@@ -235,3 +266,9 @@ extension MagneticWanderer {
     }
   }
 }
+
+let COLOR_COMBINATIONS = [
+  "#3FCCC1FF, #CC4E72FF",
+  "#CC58B7FF, #CC792AFF",
+  "#A513CCFF, #127CCCFF",
+]
