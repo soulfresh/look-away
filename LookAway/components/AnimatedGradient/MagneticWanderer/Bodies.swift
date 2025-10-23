@@ -3,34 +3,36 @@ import box2d
 extension MagneticWanderer {
   /// Collision filter categories for Box2D physics
   enum CollisionCategory {
-    static let wall: UInt64 = 0x0001        // Walls
-    static let edgeBody: UInt64 = 0x0002    // Bodies on edges
-    static let interiorBody: UInt64 = 0x0004 // Interior bodies
-    static let magnet: UInt64 = 0x0008      // Magnet bodies
+    static let wall: UInt64 = 0x0001  // Walls
+    static let edgeBody: UInt64 = 0x0002  // Bodies on edges
+    static let interiorBody: UInt64 = 0x0004  // Interior bodies
+    static let magnet: UInt64 = 0x0008  // Magnet bodies
     static let staticBody: UInt64 = 0x0010  // Static corner bodies
   }
 
-  /// Base class for static bodies that don't move
+  /// Base class for all bodies
   class Body: CustomStringConvertible {
     let bodyId: b2BodyId
     let radius: Float
 
     var description: String {
-      "Body(radius: \(radius))"
+      "Body(r: \(radius), pos: \(position))"
     }
 
     init(
       world: b2WorldId,
+      type: b2BodyType = b2_staticBody,
       position: b2Vec2,
       radius: Float,
       friction: Float = 1.0,
-      restitution: Float = 0.2
+      /// 0 = no bounce, 1 = full bounce
+      restitution: Float = 0.2,
     ) {
       self.radius = radius
 
       // Create static body
       var bodyDef = b2DefaultBodyDef()
-      bodyDef.type = b2_staticBody
+      bodyDef.type = type
       bodyDef.position = position
 
       self.bodyId = b2CreateBody(world, &bodyDef)
@@ -42,7 +44,11 @@ extension MagneticWanderer {
 
       // Collision filtering: static bodies collide with walls and all other bodies
       shapeDef.filter.categoryBits = CollisionCategory.staticBody
-      shapeDef.filter.maskBits = CollisionCategory.wall | CollisionCategory.interiorBody | CollisionCategory.magnet | CollisionCategory.edgeBody
+      shapeDef.filter.maskBits =
+        CollisionCategory.wall
+        | CollisionCategory.interiorBody
+        | CollisionCategory.magnet
+        | CollisionCategory.edgeBody
 
       var circle = b2Circle()
       circle.center = b2Vec2(x: 0, y: 0)
@@ -54,34 +60,28 @@ extension MagneticWanderer {
     var position: b2Vec2 {
       b2Body_GetPosition(bodyId)
     }
+
+    /// Update the collision mask bits for this body, specifying which
+    /// categories of shapes it should collide with.
+    func setShapeFilter(category categoryBits: UInt64, influencing maskBits: UInt64) {
+      var shapeId = b2ShapeId()
+      let shapeCount = b2Body_GetShapes(self.bodyId, &shapeId, 1)
+      if shapeCount > 0 {
+        var filter = b2Shape_GetFilter(shapeId)
+        filter.categoryBits = categoryBits
+        filter.maskBits = maskBits
+
+        b2Shape_SetFilter(shapeId, filter)
+      }
+    }
   }
 
   /// Movable dynamic bodies
-  class MovableBody: CustomStringConvertible {
-    struct Data {
-      // TODO Replace position with position2
-      let position: b2Vec2
-      let radius: Float
-      let isMagnet: Bool
-    }
-
-    let bodyId: b2BodyId
-    let radius: Float
-    let isMagnet: Bool
+  class MovableBody: Body {
     let density: Float
-    let anchorPosition: b2Vec2  // Original position for spring anchor
-    let slackLength: Float  // Maximum distance before spring force applies
 
-    var summary: Data {
-      Data(
-        position: position,
-        radius: radius,
-        isMagnet: isMagnet
-      )
-    }
-
-    var description: String {
-      "MovableBody(density: \(density), radius: \(radius), isMagnet: \(isMagnet))"
+    override var description: String {
+      "MovableBody(r: \(radius), density: \(density), pos: \(position))"
     }
 
     init(
@@ -90,50 +90,20 @@ extension MagneticWanderer {
       radius: Float,
       density: Float = 1.0,
       friction: Float = 1.0,
-      // 0 = no bounce, 1 = full bounce
       restitution: Float = 0.2,
-      isMagnet: Bool = false,
-      slackLength: Float = 1.0
     ) {
-      self.radius = radius
-      self.isMagnet = isMagnet
       self.density = density
-      self.anchorPosition = position  // Store original position
-      self.slackLength = slackLength
 
-      // Create dynamic body
-      var bodyDef = b2DefaultBodyDef()
-      bodyDef.type = b2_dynamicBody
-      bodyDef.position = position
-      // Air resistance / ground friction
-      bodyDef.linearDamping = 0.8
+      super.init(
+        world: world,
+        type: b2_dynamicBody,
+        position: position,
+        radius: radius,
+        friction: friction,
+        restitution: restitution,
+      )
 
-      self.bodyId = b2CreateBody(world, &bodyDef)
-
-      // Add circle shape
-      var shapeDef = b2DefaultShapeDef()
-      shapeDef.density = density
-      shapeDef.material.friction = friction
-      shapeDef.material.restitution = restitution
-
-      // Collision filtering: set based on whether this is a magnet or interior body
-      if isMagnet {
-        shapeDef.filter.categoryBits = CollisionCategory.magnet
-        shapeDef.filter.maskBits = CollisionCategory.wall | CollisionCategory.interiorBody | CollisionCategory.edgeBody | CollisionCategory.staticBody
-      } else {
-        shapeDef.filter.categoryBits = CollisionCategory.interiorBody
-        shapeDef.filter.maskBits = CollisionCategory.wall | CollisionCategory.interiorBody | CollisionCategory.magnet | CollisionCategory.edgeBody | CollisionCategory.staticBody
-      }
-
-      var circle = b2Circle()
-      circle.center = b2Vec2(x: 0, y: 0)
-      circle.radius = radius
-
-      b2CreateCircleShape(bodyId, &shapeDef, &circle)
-    }
-
-    var position: b2Vec2 {
-      b2Body_GetPosition(bodyId)
+      b2Body_SetLinearDamping(bodyId, 0.8)
     }
 
     var velocity: b2Vec2 {
@@ -159,7 +129,45 @@ extension MagneticWanderer {
 
   class SpringBody: MovableBody {
     override var description: String {
-      "SpringBody(density: \(density), radius: \(radius), slackLength: \(slackLength))"
+      """
+      SpringBody(
+        r: \(radius)
+        density: \(density)
+        pos: \(position)
+      )
+      """
+    }
+
+    /// Maximum distance before spring force applies
+    let slackLength: Float
+    /// Original position for spring anchor
+    let anchorPosition: b2Vec2
+
+    init(
+      world: b2WorldId,
+      position: b2Vec2,
+      radius: Float,
+      density: Float = 1.0,
+      slackLength: Float = 1.0,
+    ) {
+      self.slackLength = slackLength
+      self.anchorPosition = position
+
+      super.init(
+        world: world,
+        position: position,
+        radius: radius,
+        density: density,
+      )
+
+      setShapeFilter(
+        category: CollisionCategory.interiorBody,
+        influencing: CollisionCategory.wall
+          | CollisionCategory.interiorBody
+          | CollisionCategory.magnet
+          | CollisionCategory.edgeBody
+          | CollisionCategory.staticBody
+      )
     }
 
     /// Calculate and apply spring constraint to keep body within slack length of anchor
@@ -239,7 +247,14 @@ extension MagneticWanderer {
     let axis: b2Vec2  // Movement axis (e.g., (1,0) for horizontal, (0,1) for vertical)
 
     override var description: String {
-      "EdgeBody(density: \(density), radius: \(radius), axis: \(axis), slackLength: \(slackLength))"
+      """
+      EdgeBody(
+        r: \(radius)
+        density: \(density)
+        axis: \(axis)
+        pos: \(position)
+      )
+      """
     }
 
     init(
@@ -259,19 +274,16 @@ extension MagneticWanderer {
         position: position,
         radius: radius,
         density: density,
-        isMagnet: false,
         slackLength: slackLength
       )
 
-      // Apply collision filtering to edge body - don't collide with walls but do collide with corners
-      var shapeId = b2ShapeId()
-      let shapeCount = b2Body_GetShapes(self.bodyId, &shapeId, 1)
-      if shapeCount > 0 {
-        var filter = b2Shape_GetFilter(shapeId)
-        filter.categoryBits = CollisionCategory.edgeBody
-        filter.maskBits = CollisionCategory.interiorBody | CollisionCategory.magnet | CollisionCategory.edgeBody | CollisionCategory.staticBody
-        b2Shape_SetFilter(shapeId, filter)
-      }
+      setShapeFilter(
+        category: CollisionCategory.edgeBody,
+        influencing: CollisionCategory.interiorBody
+          | CollisionCategory.magnet
+          | CollisionCategory.edgeBody
+          | CollisionCategory.staticBody
+      )
 
       // Create prismatic joint to constrain movement to the axis
       var prismaticDef = b2DefaultPrismaticJointDef()
@@ -318,7 +330,15 @@ extension MagneticWanderer {
     }
 
     override var description: String {
-      "Magnet(density: \(density), radius: \(radius), strength: \(magneticStrength), contacts: \(contacts.count), repelling: \(isRepelling))"
+      """
+      Magnet(
+        r: \(radius)
+        density: \(density)
+        pos: \(position)
+        contacts: \(contacts.count)
+        repelling: \(isRepelling)
+      )
+      """
     }
 
     init(
@@ -328,12 +348,12 @@ extension MagneticWanderer {
       density: Float = 1.0,
       friction: Float = 1.0,
       restitution: Float = 0.2,
-      isMagnet: Bool = true,
       magneticStrength: Float = 0.5,
       maxForceDistance: Float
     ) {
       self.magneticStrength = magneticStrength
       self.maxForceDistance = maxForceDistance
+
       super.init(
         world: world,
         position: position,
@@ -341,8 +361,14 @@ extension MagneticWanderer {
         density: density,
         friction: friction,
         restitution: restitution,
-        isMagnet: isMagnet,
-        slackLength: 0  // Magnet doesn't need slack length
+      )
+
+      setShapeFilter(
+        category: CollisionCategory.magnet,
+        influencing: CollisionCategory.wall
+          | CollisionCategory.interiorBody
+          | CollisionCategory.edgeBody
+          | CollisionCategory.staticBody
       )
     }
 
@@ -408,7 +434,8 @@ extension MagneticWanderer {
       var anyContactExceedsThreshold = false
 
       // Check each non-magnet body for collision
-      for (index, body) in bodies.enumerated() where !body.isMagnet {
+      // for (index, body) in bodies.enumerated() where !body.isMagnet {
+      for (index, body) in bodies.enumerated() {
         let bodyPos = body.position
         let bodyRadius = body.radius
 
@@ -507,11 +534,6 @@ extension MagneticWanderer {
   }
 
   class PhysicsWall {
-    struct Data {
-      let start: b2Vec2
-      let end: b2Vec2
-    }
-
     let bodyId: b2BodyId
     let start: b2Vec2
     let end: b2Vec2
@@ -538,17 +560,16 @@ extension MagneticWanderer {
 
       // Collision filtering: walls should collide with everything except edge bodies
       shapeDef.filter.categoryBits = CollisionCategory.wall
-      shapeDef.filter.maskBits = CollisionCategory.interiorBody | CollisionCategory.magnet | CollisionCategory.staticBody
+      shapeDef.filter.maskBits =
+        CollisionCategory.interiorBody
+        | CollisionCategory.magnet
+        | CollisionCategory.staticBody
 
       var segment = b2Segment()
       segment.point1 = start
       segment.point2 = end
 
       b2CreateSegmentShape(bodyId, &shapeDef, &segment)
-    }
-
-    var summary: Data {
-      Data(start: start, end: end)
     }
   }
 }

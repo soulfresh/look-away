@@ -220,14 +220,14 @@ extension MagneticWanderer {
                   )
                 }
 
-                if !world.magnets.isEmpty {
+                // Render all magnets
+                for magnet in world.magnets {
                   MagnetView(
                     context: &context,
-                    // TODO Update the magnets to return their screen values
-                    position: world.coords.toScreen(world.magnets[0].position),
-                    radius: world.coords.toScreen(world.magnets[0].radius),
-                    forceDistance: world.coords.toScreen(world.magnets[0].maxForceDistance),
-                    isBeingDragged: world.isBodyBeingDragged(world.magnets[0].bodyId),
+                    position: world.coords.toScreen(magnet.position),
+                    radius: world.coords.toScreen(magnet.radius),
+                    forceDistance: world.coords.toScreen(magnet.maxForceDistance),
+                    isBeingDragged: world.isBodyBeingDragged(magnet.bodyId)
                   )
                 }
               }
@@ -265,12 +265,27 @@ extension MagneticWanderer {
               }
             }
           }
+
+//          MeshGradient(
+//            width: columns,
+//            height: rows,
+//            points: points.map { $0.simdPosition },
+//            colors: points.map { $0.color },
+//          )
         }
 
         // Controls
         HStack {
-
+          Button(action: {
+            world.toggleMagnetActive()
+          }) {
+            Text(world.magnetIsActive ? "Stop Magnet" : "Start Magnet")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
         }
+        .padding()
       }
     }
   }

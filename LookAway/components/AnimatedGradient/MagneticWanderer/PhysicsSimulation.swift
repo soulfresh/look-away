@@ -13,10 +13,8 @@ extension MagneticWanderer {
     let renderScale: Float
     let viewSize: CGSize
 
-    let worldHalfBounds: b2Vec2
-    var worldBounds: b2Vec2 {
-      b2Vec2(x: worldHalfBounds.x * 2, y: worldHalfBounds.y * 2)
-    }
+    let worldCenter: b2Vec2
+    var worldBounds: b2Vec2
 
     var centerX: CGFloat { viewSize.width / 2 }
     var centerY: CGFloat { viewSize.height / 2 }
@@ -25,10 +23,11 @@ extension MagneticWanderer {
       self.renderScale = renderScale
       self.viewSize = viewSize
 
-      self.worldHalfBounds = b2Vec2(
-        x: Float(viewSize.width / 2) / renderScale,
-        y: Float(viewSize.height / 2) / renderScale
+      self.worldBounds = b2Vec2(
+        x: Float(viewSize.width) / renderScale,
+        y: Float(viewSize.height) / renderScale
       )
+      self.worldCenter = worldBounds * 0.5
     }
 
     /// Convert physics scalar distance to screen distance (for radius, etc.)
@@ -72,6 +71,7 @@ extension MagneticWanderer {
     private var magnetStrength: Float = 0.5
 
     private(set) var ready: Bool = false
+    @Published var magnetIsActive: Bool = true
 
     let timeStep: Float = 1.0 / 60.0  // 60 FPS
     /// More substeps for better constraint solving
@@ -96,6 +96,10 @@ extension MagneticWanderer {
     var draggableBodies: [MovableBody] {
       return movables + magnets
     }
+
+//    var renderableBodies: [Body] {
+//      return movables + immovables
+//    }
 
     /// Used to synchronize drag events with physics world locking.
     /// The box2d world locks itself during the step function and throws if
@@ -131,9 +135,6 @@ extension MagneticWanderer {
       let slackLength = coords.worldBounds.x / Float(columns)
 
       // Create bodies for the grid.
-      // - Corner bodies will be static.
-      // - Edge bodies (non-corner but on edge) will be constrained to move along the edge.
-      // - Interior bodies will be dynamic with springs.
       for col in 0..<columns {
         for row in 0..<rows {
           let cols = GridHelper.identity(columns)
@@ -195,7 +196,6 @@ extension MagneticWanderer {
                 position: position,
                 radius: 0.3,
                 density: 0.3,
-                isMagnet: false,
                 slackLength: slackLength
               )
             )
@@ -204,24 +204,23 @@ extension MagneticWanderer {
       }
 
       // Create our magnets.
-      let worldBounds = coords.worldHalfBounds
-      // self.magnetForceDistance = 20
-      self.magnetForceDistance =
-        sqrt(worldBounds.x * worldBounds.x + worldBounds.y * worldBounds.y)
+      self.magnetForceDistance = coords.worldBounds.x * 0.5
 
-      let magnetBody = Magnet(
-        world: world,
-        position: b2Vec2(
-          x: coords.worldBounds.x * 0.5,
-          y: coords.worldBounds.y * 0.5
-        ),
-        radius: magnetRadius,
-        density: magnetRadius * 4,
-        isMagnet: true,
-        magneticStrength: magnetStrength,
-        maxForceDistance: magnetForceDistance
-      )
-      magnets.append(magnetBody)
+      // Create two magnets at the center
+      for _ in 0..<2 {
+        let magnetBody = Magnet(
+          world: world,
+          position: b2Vec2(
+            x: coords.worldCenter.x,
+            y: coords.worldCenter.y
+          ),
+          radius: magnetRadius,
+          density: magnetRadius * 4,
+          magneticStrength: magnetStrength,
+          maxForceDistance: magnetForceDistance
+        )
+        magnets.append(magnetBody)
+      }
 
       ready = true
     }
@@ -238,20 +237,28 @@ extension MagneticWanderer {
       // Apply any pending drag updates
       dragState.apply()
 
-      guard let magnet = magnets.getElement(at: 0) else { return }
-
-      // Update the magnet's wander behavior
-      magnet.updateContacts(bodies: movables, timeStep: timeStep)
-      let wanderForce = magnet.calculateWanderForce(
-        timeStep: timeStep, worldBounds: coords.worldBounds)
-      magnet.applyForce(wanderForce)
-
-      for body in movables {
-        if let forces = magnet.calculateMagneticForce(to: body) {
-          body.applyForce(forces.forceOnBody)
-          magnet.applyForce(forces.forceOnMagnet)
+      // Update each magnet's wander behavior
+      if magnetIsActive {
+        for magnet in magnets {
+          magnet.updateContacts(bodies: movables, timeStep: timeStep)
+          let wanderForce = magnet.calculateWanderForce(
+            timeStep: timeStep, worldBounds: coords.worldBounds)
+          magnet.applyForce(wanderForce)
         }
+      }
 
+      // Apply magnetic forces from each magnet to movable bodies (but not to other magnets)
+      for magnet in magnets {
+        for body in movables {
+          if let forces = magnet.calculateMagneticForce(to: body) {
+            body.applyForce(forces.forceOnBody)
+            magnet.applyForce(forces.forceOnMagnet)
+          }
+        }
+      }
+
+      // Apply spring constraints
+      for body in movables {
         body.applySpringConstraint(timeStep: timeStep)
       }
 
@@ -343,6 +350,10 @@ extension MagneticWanderer {
 
     func onDragEnd() {
       dragState.onDragEnd()
+    }
+
+    func toggleMagnetActive() {
+      magnetIsActive.toggle()
     }
 
     func cleanup() {}
