@@ -18,7 +18,7 @@ struct SystemTime: View {
 
   var body: some View {
     Text(currentTime)
-      .font(.system(size: 14))
+      .font(.system(size: 13))
       .foregroundStyle(Color.primary.opacity(0.8))
       .task {
         updateTime()

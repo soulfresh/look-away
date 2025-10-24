@@ -55,23 +55,24 @@ struct LookAwayContent: View {
   var body: some View {
     ZStack {
       VStack {
-
-        HStack {
+        HStack(alignment: .top) {
           AppIcon(
             size: 26,
             percent: 1 - (schedule.remainingTime / schedule.phaseLength),
             state: .running,
             color: .success
           )
+          .padding(.vertical, 10)
           Spacer()
           BreakCounts()
             // .blendMode(.difference)
             .opacity(showBreakCounts ? 1 : 0)
+            .padding(.top, safeAreaTopInset + 10)
           Spacer()
           SystemTime()
+            .padding(.vertical, 6)
         }
-        .padding()
-        .padding(.top, safeAreaTopInset)
+        .padding(.horizontal, 20)
 
         Spacer()
       }
