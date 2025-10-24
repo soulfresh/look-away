@@ -19,6 +19,9 @@ struct LookAwayContent: View {
   @State private var showBreakCounts: Bool = false
 
   var safeAreaTopInset: CGFloat = 0
+  let colorGrid: MagneticWanderer.ColorGrid
+  let columns: Int
+  let rows: Int
 
   var buttonData: [KeyHintButtonData] {
     [
@@ -62,25 +65,18 @@ struct LookAwayContent: View {
           )
           Spacer()
           BreakCounts()
-            .blendMode(.difference)
+            // .blendMode(.difference)
             .opacity(showBreakCounts ? 1 : 0)
           Spacer()
+          SystemTime()
         }
-        .padding([.leading, .vertical])
+        .padding()
         .padding(.top, safeAreaTopInset)
 
         Spacer()
       }
 
       HStack {
-        //        ActionButton("Show") {
-        //          showButtons.toggle()
-        //          if showButtons {
-        //            showButtonsStaggered()
-        //          } else {
-        //            hideButtons()
-        //          }
-        //        }
         CountDown().blendMode(.difference)
       }
 
@@ -145,7 +141,7 @@ struct LookAwayContent: View {
         // )
         // .opacity(0.90)
 
-        MagneticWanderer.AnimatedMesh()
+        MagneticWanderer.AnimatedMesh(colorGrid: colorGrid)
           .opacity(0.9)
 
       }
@@ -185,38 +181,6 @@ struct BreakCounts: View {
         score: schedule.skipped,
         positive: false
       )
-    }
-  }
-}
-
-struct CountDown: View {
-  @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
-
-  var body: some View {
-    HStack(spacing: 0) {
-      let timeString =
-        TimeFormatter
-        .format(duration: schedule.remainingTime)
-
-      ForEach(Array(timeString.enumerated()), id: \.offset) { index, char in
-        Text(String(char))
-          .font(.system(size: 80, weight: .thin))
-          // .foregroundStyle(
-          //   index < 2 && schedule.remainingTime <= 60
-          //     ? Color.theme.border.opacity(0.7)
-          //     : index == 2
-          //       ? Color.theme.border.opacity(0.7)
-          //       : Color.accentColor.opacity(0.7)
-          // )
-          .foregroundStyle(
-            index < 2 && schedule.remainingTime <= 60
-              ? Color.primary.opacity(0.3)
-              : index == 2
-                ? Color.primary.opacity(0.2)
-                : Color.primary.opacity(1.0)
-          )
-          .frame(width: char == ":" ? 20 : 50, alignment: .center)
-      }
     }
   }
 }
@@ -272,17 +236,21 @@ struct AnimatedKeyHintButton: View {
       logger: Logger()
     )
   ]
-  LookAwayContent()
-    .environmentObject(
-      AppState(
-        schedule: schedule,
-        logger: Logger()
-      )
+  LookAwayContent(
+    colorGrid: MagneticWanderer.ColorStylePicker.pick(columns: 4, rows: 4),
+    columns: 4,
+    rows: 4
+  )
+  .environmentObject(
+    AppState(
+      schedule: schedule,
+      logger: Logger()
     )
-    .environmentObject(
-      BreakSchedule(
-        schedule: schedule,
-        logger: Logger()
-      )
+  )
+  .environmentObject(
+    BreakSchedule(
+      schedule: schedule,
+      logger: Logger()
     )
+  )
 }

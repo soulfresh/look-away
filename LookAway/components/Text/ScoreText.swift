@@ -21,9 +21,9 @@ struct ScoreText: View {
         : Color.theme.error
     HStack(spacing: 0) {
       Text("\(title): ")
-        .foregroundStyle(Color.primary.opacity(0.3))
+        .foregroundStyle(Color.primary.opacity(0.8))
       Text("\(score)")
-        .foregroundStyle(color.opacity(0.3))
+        .foregroundStyle(color.opacity(0.9))
     }
     .font(.system(size: 11))
   }

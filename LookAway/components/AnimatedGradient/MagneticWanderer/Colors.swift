@@ -411,10 +411,49 @@ extension MagneticWanderer {
     }
   }
 
-}
+  /// Utility for randomly selecting color grid styles
+  struct ColorStylePicker {
+    /// Randomly selects a ColorGrid style with random parameters
+    /// - Parameters:
+    ///   - columns: Number of columns in the grid
+    ///   - rows: Number of rows in the grid
+    /// - Returns: A randomly configured ColorGrid instance
+    static func pick(columns: Int = 4, rows: Int = 4) -> ColorGrid {
+      let style = Int.random(in: 0...2)
+      switch style {
+      case 0:
+        return BlobColorGrid(
+          columns: columns,
+          rows: rows,
+          blobCount: Int.random(in: 1...2),
+          backgroundColor: Color(
+            hue: Double.random(in: 0...1),
+            saturation: Double.random(in: 0.1...0.3),
+            brightness: Double.random(in: 0.5...0.9)
+          )
+        )
+      case 1:
+        return BlobColorGrid(
+          columns: columns,
+          rows: rows,
+          blobCount: Int.random(in: 1...2),
+          backgroundColor: Color(
+            hue: Double.random(in: 0...1),
+            saturation: Double.random(in: 0.2...0.5),
+            brightness: Double.random(in: 0.1...0.2)
+          ),
+          saturation: 0.1...0.3,
+          brightness: 0.2...0.5
+        )
+      default:
+        return MultiColorGrid(
+          columns: columns,
+          rows: rows,
+          colorCount: Int.random(in: 2...3),
+          rotationDegrees: Double.random(in: 0...360)
+        )
+      }
+    }
+  }
 
-let COLOR_COMBINATIONS = [
-  "#3FCCC1FF, #CC4E72FF",
-  "#CC58B7FF, #CC792AFF",
-  "#A513CCFF, #127CCCFF",
-]
+}

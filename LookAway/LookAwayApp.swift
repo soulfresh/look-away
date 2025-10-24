@@ -251,6 +251,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     ]
     NSApplication.shared.presentationOptions = restrictiveOptions
 
+    let columns = 4
+    let rows = 4
+    // Pick a color style for this blocking session (shared across all screens)
+    let colorGrid = MagneticWanderer.ColorStylePicker.pick(columns: columns, rows: rows)
+
     // Create a window blocker for each screen.
     if blockerWindows.isEmpty {
       for screen in NSScreen.screens {
@@ -261,10 +266,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
         } else {
           safeAreaTopInset = 0
         }
+
         // The ContentView will get the AppState from the environment.
-        let contentView = LookAwayContent(safeAreaTopInset: safeAreaTopInset)
-          .environmentObject(appState)
-          .environmentObject(appState.schedule)
+        let contentView = LookAwayContent(
+          safeAreaTopInset: safeAreaTopInset,
+          colorGrid: colorGrid,
+          columns: columns,
+          rows: rows
+        )
+        .environmentObject(appState)
+        .environmentObject(appState.schedule)
 
         let window = BlockingWindow(
           screen: screen,

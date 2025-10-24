@@ -7,54 +7,20 @@ public enum MagneticWanderer {}
 extension MagneticWanderer {
 
   struct AnimatedMesh: View {
-    let columns = 4
-    let rows = 4
+    let columns: Int
+    let rows: Int
     @StateObject private var world = PhysicsSimulation()
     @State private var clock: any Clock<Duration>
     @Binding var showCanvas: Bool
-    @State private var colors: ColorGrid
+    let colors: ColorGrid
 
     // Expose state to parent
     @Binding var magnetIsWandering: Bool
 
-    static func pickColorStyle(columns: Int, rows: Int) -> ColorGrid {
-      let style = Int.random(in: 0...2)
-      switch style {
-      case 0:
-        return BlobColorGrid(
-          columns: columns,
-          rows: rows,
-          blobCount: Int.random(in: 1...2),
-          backgroundColor: Color(
-            hue: Double.random(in: 0...1),
-            saturation: Double.random(in: 0.1...0.3),
-            brightness: Double.random(in: 0.5...0.9),
-          ),
-        )
-      case 1:
-        return BlobColorGrid(
-          columns: columns,
-          rows: rows,
-          blobCount: Int.random(in: 1...2),
-          backgroundColor: Color(
-            hue: Double.random(in: 0...1),
-            saturation: Double.random(in: 0.2...0.5),
-            brightness: Double.random(in: 0.1...0.2),
-          ),
-          saturation: 0.1...0.3,
-          brightness: 0.2...0.5,
-        )
-      default:
-        return MultiColorGrid(
-          columns: columns,
-          rows: rows,
-          colorCount: Int.random(in: 2...3),
-          rotationDegrees: Double.random(in: 0...360)
-        )
-      }
-    }
-
     init(
+      colorGrid: ColorGrid? = nil,
+      columns: Int = 4,
+      rows: Int = 4,
       showCanvas: Binding<Bool> = .constant(false),
       magnetIsWandering: Binding<Bool> = .constant(false),
       clock: any Clock<Duration> = ContinuousClock()
@@ -62,7 +28,9 @@ extension MagneticWanderer {
       self._showCanvas = showCanvas
       self._magnetIsWandering = magnetIsWandering
       self.clock = clock
-      self.colors = AnimatedMesh.pickColorStyle(columns: columns, rows: rows)
+      self.colors = colorGrid ?? ColorStylePicker.pick(columns: 4, rows: 4)
+      self.columns = columns
+      self.rows = rows
     }
 
     // Helper to generate default grid points when world isn't ready
@@ -86,11 +54,12 @@ extension MagneticWanderer {
             width: columns,
             height: rows,
             points: world.renderableBodies.isEmpty ? defaultGridPoints() : world.renderableBodies,
-            colors: (world.renderableBodies.isEmpty ? defaultGridPoints() : world.renderableBodies).indices.map { index in
-              let col = index % columns
-              let row = index / columns
-              return colors.getColor(atColumn: col, row: row)
-            },
+            colors: (world.renderableBodies.isEmpty ? defaultGridPoints() : world.renderableBodies)
+              .indices.map { index in
+                let col = index % columns
+                let row = index / columns
+                return colors.getColor(atColumn: col, row: row)
+              },
           )
 
           if world.ready && showCanvas {
@@ -336,14 +305,16 @@ extension MagneticWanderer {
       )
     }
   }
-  
+
   struct Playground: View {
     @State private var showCanvas: Bool = false
     @State private var magnetIsWandering: Bool = false
+    @State private var colorGrid: ColorGrid = ColorStylePicker.pick(columns: 4, rows: 4)
 
     var body: some View {
       VStack {
         AnimatedMesh(
+          colorGrid: colorGrid,
           showCanvas: $showCanvas,
           magnetIsWandering: $magnetIsWandering
         )
