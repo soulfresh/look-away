@@ -127,22 +127,22 @@ struct LookAwayContent: View {
           endPoint: UnitPoint(x: 0.5, y: 0.8)
         )
 
-         AnimatedGradient(
-           baseColor: .constant(
-             Color(
-               hue: 0.55,
-               saturation: 0.6,
-               brightness: 0.3,
-               // Colorize yellow by skip count
-               // hue: lerp(2, 5, 0.5, 0.11, Double(schedule.delayed)),
-               // saturation: 0.9,
-               // brightness: lerp(2, 5, 0.2, 0.4, Double(schedule.delayed)),
-               opacity: 1.0
-             )
-           ),
-           colorRangeDegrees: .constant(25),
-         )
-         .opacity(0.90)
+        NortherLights(
+          baseColor: .constant(
+            Color(
+              hue: 0.55,
+              saturation: 0.6,
+              brightness: 0.3,
+              // Colorize yellow by skip count
+              // hue: lerp(2, 5, 0.5, 0.11, Double(schedule.delayed)),
+              // saturation: 0.9,
+              // brightness: lerp(2, 5, 0.2, 0.4, Double(schedule.delayed)),
+              opacity: 1.0
+            )
+          ),
+          colorRangeDegrees: .constant(25),
+        )
+        .opacity(0.90)
 
       }
     )

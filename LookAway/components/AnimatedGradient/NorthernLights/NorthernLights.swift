@@ -30,7 +30,7 @@ struct MeshPoint: Identifiable {
 // - each point has a force pushing them in random directions
 
 /// A `MeshGradient` that animates the positions/colors of points within the mesh.
-struct AnimatedGradient: View {
+struct NortherLights: View {
   /// Whether or not the animate the mesh point positions
   @Binding var animateMesh: Bool
   /// Whether or not to animate the mesh point colors
@@ -472,7 +472,7 @@ struct AnimatedGradient_Previews: PreviewProvider {
 
     var body: some View {
       VStack {
-        AnimatedGradient(
+        NortherLights(
           baseColor: $baseColor,
           colorRangeDegrees: $colorRangeDegrees,
           animateMesh: $animateMesh,

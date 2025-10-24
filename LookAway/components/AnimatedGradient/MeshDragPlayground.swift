@@ -232,7 +232,7 @@ func makeBehavior(for index: Int, columns: Int, currentPoints: [MeshPoint]) -> A
   return AnyPoint(EdgePoint(index: index, columns: columns, points: currentPoints))
 }
 
-struct AnimatedGradientPlayground: View {
+struct MeshDragPlayground: View {
   let debug = true
   let columns = 4
   let rows = 4
@@ -253,7 +253,7 @@ struct AnimatedGradientPlayground: View {
         let x = cols == 1 ? 0.5 : CGFloat(col) / CGFloat(cols - 1)
         let y = rowsCount == 1 ? 0.5 : CGFloat(row) / CGFloat(rowsCount - 1)
         // Use a random color for all points so I can more easily see rendering artifacts
-        let color: Color = AnimatedGradientPlayground.randomColor()
+        let color: Color = MeshDragPlayground.randomColor()
         generatedPoints.append(MeshPoint(position: UnitPoint(x: x, y: y), color: color))
       }
     }
@@ -381,7 +381,7 @@ struct MeshDebugOverlay: View {
 
 #Preview {
   HStack {
-    AnimatedGradientPlayground()
+    MeshDragPlayground()
   }
   .padding(20)
 }
