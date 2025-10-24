@@ -37,11 +37,16 @@ struct LookAwaySettings: View {
 
   var body: some View {
     TabView {
+      General()
+        .tabItem {
+          Label("General", systemImage: "gear")
+        }
+
       Schedule(state: appState, storage: storage, logger: baseLogger)
         .tabItem {
           Label("Schedule", systemImage: "clock")
         }
-      
+
       Shortcuts()
         .tabItem {
           Label("Shortcuts", systemImage: "info.circle")
