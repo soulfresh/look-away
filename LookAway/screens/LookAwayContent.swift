@@ -62,6 +62,7 @@ struct LookAwayContent: View {
           )
           Spacer()
           BreakCounts()
+            .blendMode(.difference)
             .opacity(showBreakCounts ? 1 : 0)
           Spacer()
         }
@@ -80,7 +81,7 @@ struct LookAwayContent: View {
         //            hideButtons()
         //          }
         //        }
-        CountDown()
+        CountDown().blendMode(.difference)
       }
 
       VStack {
@@ -91,7 +92,7 @@ struct LookAwayContent: View {
             AnimatedKeyHintButton(
               title: buttonData[i].title,
               key: buttonData[i].key,
-              color: buttonData[i].color ?? .accentColor,
+              color: buttonData[i].color ?? .primary,
               action: buttonData[i].action,
               isVisible: shownButtonIndices.contains(i),
               offsetY: 10,
@@ -127,22 +128,25 @@ struct LookAwayContent: View {
           endPoint: UnitPoint(x: 0.5, y: 0.8)
         )
 
-        NortherLights(
-          baseColor: .constant(
-            Color(
-              hue: 0.55,
-              saturation: 0.6,
-              brightness: 0.3,
-              // Colorize yellow by skip count
-              // hue: lerp(2, 5, 0.5, 0.11, Double(schedule.delayed)),
-              // saturation: 0.9,
-              // brightness: lerp(2, 5, 0.2, 0.4, Double(schedule.delayed)),
-              opacity: 1.0
-            )
-          ),
-          colorRangeDegrees: .constant(25),
-        )
-        .opacity(0.90)
+        // NortherLights(
+        //   baseColor: .constant(
+        //     Color(
+        //       hue: 0.55,
+        //       saturation: 0.6,
+        //       brightness: 0.3,
+        //       // Colorize yellow by skip count
+        //       // hue: lerp(2, 5, 0.5, 0.11, Double(schedule.delayed)),
+        //       // saturation: 0.9,
+        //       // brightness: lerp(2, 5, 0.2, 0.4, Double(schedule.delayed)),
+        //       opacity: 1.0
+        //     )
+        //   ),
+        //   colorRangeDegrees: .constant(25),
+        // )
+        // .opacity(0.90)
+
+        MagneticWanderer.AnimatedMesh()
+          .opacity(0.9)
 
       }
     )
@@ -197,20 +201,20 @@ struct CountDown: View {
       ForEach(Array(timeString.enumerated()), id: \.offset) { index, char in
         Text(String(char))
           .font(.system(size: 80, weight: .thin))
+          // .foregroundStyle(
+          //   index < 2 && schedule.remainingTime <= 60
+          //     ? Color.theme.border.opacity(0.7)
+          //     : index == 2
+          //       ? Color.theme.border.opacity(0.7)
+          //       : Color.accentColor.opacity(0.7)
+          // )
           .foregroundStyle(
             index < 2 && schedule.remainingTime <= 60
-              ? Color.theme.border.opacity(0.7)
+              ? Color.primary.opacity(0.3)
               : index == 2
-                ? Color.theme.border.opacity(0.7)
-                : Color.accentColor.opacity(0.7)
+                ? Color.primary.opacity(0.2)
+                : Color.primary.opacity(1.0)
           )
-          //          .foregroundStyle(
-          //            index < 2 && schedule.remainingTime <= 60
-          //              ? Color.primary.opacity(0.3)
-          //              : index == 2
-          //                ? Color.primary.opacity(0.2)
-          //                : Color.primary.opacity(1.0)
-          //          )
           .frame(width: char == ":" ? 20 : 50, alignment: .center)
       }
     }

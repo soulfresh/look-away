@@ -11,8 +11,11 @@ extension MagneticWanderer {
     let rows = 4
     @StateObject private var world = PhysicsSimulation()
     @State private var clock: any Clock<Duration>
-    @State private var showCanvas: Bool = false
+    @Binding var showCanvas: Bool
     @State private var colors: ColorGrid
+
+    // Expose state to parent
+    @Binding var magnetIsWandering: Bool
 
     static func pickColorStyle(columns: Int, rows: Int) -> ColorGrid {
       let style = Int.random(in: 0...2)
@@ -51,146 +54,131 @@ extension MagneticWanderer {
       }
     }
 
-    init(clock: any Clock<Duration> = ContinuousClock()) {
+    init(
+      showCanvas: Binding<Bool> = .constant(false),
+      magnetIsWandering: Binding<Bool> = .constant(false),
+      clock: any Clock<Duration> = ContinuousClock()
+    ) {
+      self._showCanvas = showCanvas
+      self._magnetIsWandering = magnetIsWandering
       self.clock = clock
       self.colors = AnimatedMesh.pickColorStyle(columns: columns, rows: rows)
     }
 
-    func copyColorsToClipboard() {
-      #if os(macOS)
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(colors.colorList, forType: .string)
-      #elseif os(iOS)
-        UIPasteboard.general.string = colors.description
-      #endif
+    // Helper to generate default grid points when world isn't ready
+    private func defaultGridPoints() -> [SIMD2<Float>] {
+      var points: [SIMD2<Float>] = []
+      for row in 0..<rows {
+        for col in 0..<columns {
+          let x = Float(col) / Float(columns - 1)
+          let y = Float(row) / Float(rows - 1)
+          points.append(SIMD2<Float>(x, y))
+        }
+      }
+      return points
     }
 
     var body: some View {
-      VStack {
-        GeometryReader { geometry in
-          ZStack {
+      GeometryReader { geometry in
+        ZStack {
 
-            MeshGradient(
-              width: columns,
-              height: rows,
-              points: world.renderableBodies,
-              colors: world.renderableBodies.indices.map { index in
-                // let body = world.renderableBodies[index]
-                let col = index % columns
-                let row = index / columns
-                return colors.getColor(atColumn: col, row: row)
-              },
-            )
+          MeshGradient(
+            width: columns,
+            height: rows,
+            points: world.renderableBodies.isEmpty ? defaultGridPoints() : world.renderableBodies,
+            colors: (world.renderableBodies.isEmpty ? defaultGridPoints() : world.renderableBodies).indices.map { index in
+              let col = index % columns
+              let row = index / columns
+              return colors.getColor(atColumn: col, row: row)
+            },
+          )
 
-            if world.ready && showCanvas {
-              Canvas { context, size in
-                for wall in world.walls {
-                  WallView(
-                    context: &context,
-                    start: world.coords.toScreen(wall.start),
-                    end: world.coords.toScreen(wall.end),
-                  )
-                }
-
-                // Render static bodies
-                for staticBody in world.immovables {
-                  StaticBodyView(
-                    context: &context,
-                    position: world.coords.toScreen(staticBody.position),
-                    radius: world.coords.toScreen(staticBody.radius)
-                  )
-                }
-
-                for moveable in world.movables {
-                  MoveableView(
-                    context: &context,
-                    position: world.coords.toScreen(moveable.position),
-                    radius: world.coords.toScreen(moveable.radius),
-                    anchorPoint:
-                      world.coords.toScreen(moveable.anchorPosition),
-                    isTaut: moveable.isTaut,
-                    isBeingDragged: world.isBodyBeingDragged(moveable.bodyId),
-                  )
-                }
-
-                // Render all magnets
-                for magnet in world.magnets {
-                  MagnetView(
-                    context: &context,
-                    position: world.coords.toScreen(magnet.position),
-                    radius: world.coords.toScreen(magnet.radius),
-                    forceDistance: world.coords.toScreen(magnet.maxForceDistance),
-                    isBeingDragged: world.isBodyBeingDragged(magnet.bodyId)
-                  )
-                }
+          if world.ready && showCanvas {
+            Canvas { context, size in
+              for wall in world.walls {
+                WallView(
+                  context: &context,
+                  start: world.coords.toScreen(wall.start),
+                  end: world.coords.toScreen(wall.end),
+                )
               }
-              .gesture(
-                DragGesture(minimumDistance: 0)
-                  .onChanged { value in
-                    world.onDragMove(to: value.location)
-                  }
-                  .onEnded { value in
-                    world.onDragEnd()
-                  }
-              )
-            }
-          }
-          .onAppear {
-            world.start(
-              columns: columns,
-              rows: rows,
-              screenSize: geometry.size
-            )
-          }
-          .onChange(of: geometry.size) { _, newSize in
-            world.onResize(newSize)
-          }
-          .task {
-            while !Task.isCancelled {
-              world.step()
 
-              do {
-                let interval = Duration.milliseconds(Int64(world.timeStep * 1000))
-                try await clock.sleep(for: interval)
-              } catch {
-                print("Clock sleep interrupted: \(error)")
-                break
+              // Render static bodies
+              for staticBody in world.immovables {
+                StaticBodyView(
+                  context: &context,
+                  position: world.coords.toScreen(staticBody.position),
+                  radius: world.coords.toScreen(staticBody.radius)
+                )
+              }
+
+              for moveable in world.movables {
+                MoveableView(
+                  context: &context,
+                  position: world.coords.toScreen(moveable.position),
+                  radius: world.coords.toScreen(moveable.radius),
+                  anchorPoint:
+                    world.coords.toScreen(moveable.anchorPosition),
+                  isTaut: moveable.isTaut,
+                  isBeingDragged: world.isBodyBeingDragged(moveable.bodyId),
+                )
+              }
+
+              // Render all magnets
+              for magnet in world.magnets {
+                MagnetView(
+                  context: &context,
+                  position: world.coords.toScreen(magnet.position),
+                  radius: world.coords.toScreen(magnet.radius),
+                  forceDistance: world.coords.toScreen(magnet.maxForceDistance),
+                  isBeingDragged: world.isBodyBeingDragged(magnet.bodyId)
+                )
               }
             }
+            .gesture(
+              DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                  world.onDragMove(to: value.location)
+                }
+                .onEnded { value in
+                  world.onDragEnd()
+                }
+            )
           }
         }
-
-        // Controls
-        HStack {
-          Button(action: {
+        .onAppear {
+          world.start(
+            columns: columns,
+            rows: rows,
+            screenSize: geometry.size
+          )
+        }
+        .onChange(of: geometry.size) { _, newSize in
+          world.onResize(newSize)
+        }
+        .onChange(of: magnetIsWandering) { _, newValue in
+          // Sync external state changes to the world
+          if newValue != world.magnetIsWandering {
             world.toggleMagnetActive()
-          }) {
-            Text(world.magnetIsWandering ? "Stop Magnet" : "Start Magnet")
-              .padding(.horizontal, 16)
-              .padding(.vertical, 8)
           }
-          .buttonStyle(.borderedProminent)
-
-          Button(action: {
-            showCanvas.toggle()
-          }) {
-            Text(showCanvas ? "Hide Canvas" : "Show Canvas")
-              .padding(.horizontal, 16)
-              .padding(.vertical, 8)
-          }
-          .buttonStyle(.borderedProminent)
-
-          Button(action: {
-            copyColorsToClipboard()
-          }) {
-            Text("Copy Colors")
-              .padding(.horizontal, 16)
-              .padding(.vertical, 8)
-          }
-          .buttonStyle(.borderedProminent)
         }
-        .padding()
+        .onChange(of: world.magnetIsWandering) { _, newValue in
+          // Sync world state changes to external binding
+          magnetIsWandering = newValue
+        }
+        .task {
+          while !Task.isCancelled {
+            world.step()
+
+            do {
+              let interval = Duration.milliseconds(Int64(world.timeStep * 1000))
+              try await clock.sleep(for: interval)
+            } catch {
+              print("Clock sleep interrupted: \(error)")
+              break
+            }
+          }
+        }
       }
     }
   }
@@ -348,11 +336,47 @@ extension MagneticWanderer {
       )
     }
   }
+  
+  struct Playground: View {
+    @State private var showCanvas: Bool = false
+    @State private var magnetIsWandering: Bool = false
+
+    var body: some View {
+      VStack {
+        AnimatedMesh(
+          showCanvas: $showCanvas,
+          magnetIsWandering: $magnetIsWandering
+        )
+
+        // Controls
+        HStack {
+          Button(action: {
+            magnetIsWandering.toggle()
+          }) {
+            Text(magnetIsWandering ? "Stop Magnet" : "Start Magnet")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
+
+          Button(action: {
+            showCanvas.toggle()
+          }) {
+            Text(showCanvas ? "Hide Canvas" : "Show Canvas")
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
+          }
+          .buttonStyle(.borderedProminent)
+        }
+        .padding()
+      }
+    }
+  }
 }
 
 #Preview {
   HStack {
-    MagneticWanderer.AnimatedMesh()
+    MagneticWanderer.Playground()
   }
   .padding(20)
 }
