@@ -2,7 +2,7 @@ import AVFoundation
 import CoreMediaIO
 import Foundation
 
-protocol DeviceProviderProtocol {
+protocol CameraDeviceProvider {
   func getCameraDevices() -> [Int]
   func addListener(
     deviceID: Int,
@@ -17,7 +17,7 @@ protocol DeviceProviderProtocol {
   ) -> T?
 }
 
-class CoreMediaIODeviceProvider: DeviceProviderProtocol {
+class CoreMediaIODeviceProvider: CameraDeviceProvider {
   private let logger: Logging
 
   private static let propertyMap: [String: CMIOObjectPropertySelector] = [
@@ -251,11 +251,11 @@ class CameraActivityMonitor {
     activeCameraCount > 0
   }
 
-  private let deviceProvider: DeviceProviderProtocol
+  private let deviceProvider: CameraDeviceProvider
 
   init(
     logger: Logging,
-    deviceProvider: DeviceProviderProtocol? = nil
+    deviceProvider: CameraDeviceProvider? = nil
   ) {
     self.logger = logger
     self.deviceProvider = deviceProvider ?? CoreMediaIODeviceProvider(logger: logger)

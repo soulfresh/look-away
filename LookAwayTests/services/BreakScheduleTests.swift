@@ -15,6 +15,7 @@ class BreakScheduleTestContext {
   let clock: BreakClock = BreakClock()
   let schedule: BreakSchedule<TestClock<Duration>>
   let cameraProvider: MockCameraDeviceProvider
+  let microphoneProvider: MockAudioDeviceProvider
 
   init(debug: Bool = false) {
     let logger = Logger(enabled: debug)
@@ -38,6 +39,22 @@ class BreakScheduleTestContext {
     )
     self.cameraProvider = cameraProvider
 
+    let microphoneProvider = MockAudioDeviceProvider(
+      devices: [
+        MicrophoneActivityMonitor
+          .MicrophoneInfo(
+            id: 0,
+            uniqueID: "mock-uid-0",
+            name: "Mock Microphone",
+            manufacturer: "Mock Manufacturer",
+            isRunning: false,
+            modelUID: "MockModel",
+            transportType: "USB"
+          )
+      ]
+    )
+    self.microphoneProvider = microphoneProvider
+
     schedule = BreakSchedule(
       schedule: [
         WorkCycle(
@@ -53,6 +70,7 @@ class BreakScheduleTestContext {
           ],
           clock: clock.clock,
           cameraProvider: cameraProvider,
+          microphoneProvider: microphoneProvider
         ),
         WorkCycle(
           frequency: WORK_2,
@@ -67,6 +85,7 @@ class BreakScheduleTestContext {
           ],
           clock: clock.clock,
           cameraProvider: cameraProvider,
+          microphoneProvider: microphoneProvider
         ),
       ],
       logger: LogWrapper(logger: logger, label: "Test schedule"),
@@ -285,7 +304,7 @@ struct BreakScheduleTests {
     #expect(test.schedule.completed == 0)
     
     // Restart the entire schedule
-    test.schedule.restartSchedule()
+    test.schedule.restartSchedule(fullReset: true)
     await test.clock.tick()
     
     #expect(test.schedule.isBlocking == false)

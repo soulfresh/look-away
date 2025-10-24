@@ -3,7 +3,7 @@ import Testing
 
 @testable import LookAway
 
-class MockCameraDeviceProvider: DeviceProviderProtocol {
+class MockCameraDeviceProvider: CameraDeviceProvider {
   var devices: [CameraActivityMonitor.CameraInfo]
   var listeners: [Int: (Int) -> Void] = [:]
 
@@ -12,6 +12,50 @@ class MockCameraDeviceProvider: DeviceProviderProtocol {
   }
 
   func getCameraDevices() -> [Int] {
+    return devices.map { $0.id }
+  }
+
+  func addListener(deviceID: Int, listener: @escaping (Int) -> Void) {
+    listeners[deviceID] = listener
+  }
+
+  func removeListener(deviceID: Int) {
+    listeners.removeValue(forKey: deviceID)
+  }
+
+  func stopListening() {
+    self.listeners = [:]
+  }
+
+  func getDeviceProperty<T>(deviceID: Int, property: String, type: T.Type) -> T? {
+    let device = devices.first { $0.id == deviceID }
+    let result = device?[property]
+    return result as? T
+  }
+
+  func emitEvent(deviceID: Int, newState: Bool) {
+    // Update the device running state
+    let index = devices.firstIndex(where: { $0.id == deviceID })
+    if let index = index {
+      devices[index].isRunning = newState
+    }
+
+    // Emit the update event
+    if let listener = listeners[deviceID] {
+      listener(newState ? 1 : 0)
+    }
+  }
+}
+
+class MockAudioDeviceProvider: AudioDeviceProvider {
+  var devices: [MicrophoneActivityMonitor.MicrophoneInfo]
+  var listeners: [Int: (Int) -> Void] = [:]
+
+  init(devices: [MicrophoneActivityMonitor.MicrophoneInfo]? = nil) {
+    self.devices = devices ?? []
+  }
+
+  func getMicrophoneDevices() -> [Int] {
     return devices.map { $0.id }
   }
 
@@ -208,7 +252,7 @@ struct CameraActivityMonitorTests {
     #expect(test.deviceProvider.listeners.count == 2)
 
     test.monitor.stopListening()
-    
+
     #expect(test.deviceProvider.listeners.isEmpty)
   }
 }

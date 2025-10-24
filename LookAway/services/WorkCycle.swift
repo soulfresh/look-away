@@ -1,13 +1,14 @@
+import Clocks
 import Combine
 import Foundation
-import Clocks
 
 // TODO This should be an Actor
 /// Represents a single break in a user's schedule.
 ///
 /// This class is a self-contained state machine that manages its own timer
 /// and publishes its current phase.
-class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConvertible, Identifiable {
+class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConvertible, Identifiable
+{
   /// The different phases a break can be in.
   enum Phase: Equatable {
     case idle
@@ -64,7 +65,9 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
 
   private let clock: ClockType
   // A provider for camera device information.
-  private var cameraProvider: DeviceProviderProtocol?
+  private var cameraProvider: CameraDeviceProvider?
+  // A provider for microphone device information.
+  private var microphoneProvider: AudioDeviceProvider?
 
   var description: String {
     return "WorkCycle(\(workLength) -> \(breakLength) [\(phase)])"
@@ -82,7 +85,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     logger: Logging,
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
-    cameraProvider: DeviceProviderProtocol? = nil,
+    cameraProvider: CameraDeviceProvider? = nil,
+    microphoneProvider: AudioDeviceProvider? = nil
   ) {
     self.workLength = frequency
     self.breakLength = duration
@@ -90,6 +94,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     self.inactivityThresholds = inactivityThresholds
     self.clock = clock ?? ContinuousClock() as! ClockType
     self.cameraProvider = cameraProvider
+    self.microphoneProvider = microphoneProvider
   }
 
   convenience init(
@@ -98,7 +103,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     logger: Logging,
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
-    cameraProvider: DeviceProviderProtocol? = nil,
+    cameraProvider: CameraDeviceProvider? = nil,
+    microphoneProvider: AudioDeviceProvider? = nil
   ) {
     self.init(
       frequency: TimeSpan(value: frequency, unit: .second),
@@ -107,6 +113,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
       inactivityThresholds: inactivityThresholds,
       clock: clock,
       cameraProvider: cameraProvider,
+      microphoneProvider: microphoneProvider
     )
   }
 
@@ -227,12 +234,13 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   private func waitForInactivity() async throws {
     // Make sure we're in the "waiting" phase
     phase = .waiting
-    
+
     let listener = InactivityListener<ClockType>(
       logger: LogWrapper(logger: logger, label: "Inactivity"),
       inactivityThresholds: inactivityThresholds,
       clock: clock,
       cameraProvider: cameraProvider,
+      microphoneProvider: microphoneProvider
     )
     try await listener.waitForInactivity()
   }

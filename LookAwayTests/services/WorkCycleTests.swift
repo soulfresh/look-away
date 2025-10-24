@@ -33,6 +33,7 @@ class WorkCycleTestContext {
     initialInteraction: TimeInterval = 10,
     inactivityThresholds: [ActivityThreshold]? = nil,
     cameraRunning: Bool = false,
+    microphoneRunning: Bool = false,
     debug: Bool = false
   ) {
     // Create a mutable interaction value that can be referenced in our callback.
@@ -68,6 +69,20 @@ class WorkCycleTestContext {
               category: "Camera",
               type: "USB",
               modelID: "MockModel"
+            )
+        ]
+      ),
+      microphoneProvider: MockAudioDeviceProvider(
+        devices: [
+          MicrophoneActivityMonitor
+            .MicrophoneInfo(
+              id: 0,
+              uniqueID: "mock-uid-0",
+              name: "Mock Microphone",
+              manufacturer: "Mock Manufacturer",
+              isRunning: microphoneRunning,
+              modelUID: "MockModel",
+              transportType: "USB"
             )
         ]
       )
