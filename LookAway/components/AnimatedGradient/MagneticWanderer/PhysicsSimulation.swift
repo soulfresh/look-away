@@ -273,6 +273,9 @@ extension MagneticWanderer {
       // Apply any pending drag updates
       dragState.apply()
 
+      // Check for magnet-to-magnet collisions and apply separation impulses
+      checkMagnetCollisions()
+
       // Update each magnet's wander behavior
       if magnetIsWandering {
         for magnet in magnets {
@@ -311,6 +314,96 @@ extension MagneticWanderer {
       // Notify observers that bodies have updated (must be on main thread)
       Task { @MainActor in
         objectWillChange.send()
+      }
+    }
+
+    /// Check for magnet-to-magnet collisions and apply separation impulses
+    private func checkMagnetCollisions() {
+      // Collision parameters
+      let separationImpulseStrength: Float = 1.0  // Base impulse magnitude
+      let minSeparationSpeed: Float = 8.0  // Minimum separation velocity after collision
+
+      // Check each pair of magnets
+      for i in 0..<magnets.count {
+        for j in (i + 1)..<magnets.count {
+          let magnet1 = magnets[i]
+          let magnet2 = magnets[j]
+
+          let pos1 = magnet1.position
+          let pos2 = magnet2.position
+
+          // Calculate distance between magnet centers
+          let dx = pos2.x - pos1.x
+          let dy = pos2.y - pos1.y
+          let distance = sqrt(dx * dx + dy * dy)
+
+          // Check if magnets are colliding (overlapping)
+          let combinedRadius = magnet1.radius + magnet2.radius
+          let isColliding = distance < combinedRadius
+
+          // Check if this is a new collision (wasn't colliding last frame)
+          let wasColliding = magnet1.isCollidingWith(magnet2.bodyId)
+
+          if isColliding {
+            // Mark as colliding
+            magnet1.setColliding(with: magnet2.bodyId)
+            magnet2.setColliding(with: magnet1.bodyId)
+
+            // Only apply impulse on first contact (not continuous collision)
+            if !wasColliding {
+              // Calculate collision normal (direction from magnet1 to magnet2)
+              let normal =
+                distance > 0.001
+                ? b2Vec2(x: dx / distance, y: dy / distance)
+                : b2Vec2(x: 1.0, y: 0.0)  // Fallback if magnets are exactly on top of each other
+
+              // Get current velocities
+              let vel1 = magnet1.velocity
+              let vel2 = magnet2.velocity
+
+              // Calculate relative velocity along collision normal
+              let relativeVelocity = b2Vec2(
+                x: vel2.x - vel1.x,
+                y: vel2.y - vel1.y
+              )
+              let velocityAlongNormal =
+                relativeVelocity.x * normal.x + relativeVelocity.y * normal.y
+
+              // Calculate impulse magnitude to achieve minimum separation speed
+              // Use a combination of fixed impulse and velocity-based impulse
+              let mass1 = b2Body_GetMass(magnet1.bodyId)
+              let mass2 = b2Body_GetMass(magnet2.bodyId)
+              let totalMass = mass1 + mass2
+
+              // If magnets are moving toward each other, reverse them
+              // If already separating but too slowly, boost separation
+              let targetSeparationVelocity =
+                velocityAlongNormal < minSeparationSpeed
+                ? minSeparationSpeed : velocityAlongNormal * 2.0
+
+              let impulseScalar = (targetSeparationVelocity - velocityAlongNormal) * totalMass * 0.5
+
+              // Apply impulses in opposite directions
+              let impulse1 = b2Vec2(
+                x: -normal.x * impulseScalar / mass1 * separationImpulseStrength,
+                y: -normal.y * impulseScalar / mass1 * separationImpulseStrength
+              )
+              let impulse2 = b2Vec2(
+                x: normal.x * impulseScalar / mass2 * separationImpulseStrength,
+                y: normal.y * impulseScalar / mass2 * separationImpulseStrength
+              )
+
+              magnet1.applyImpulse(impulse1)
+              magnet2.applyImpulse(impulse2)
+            }
+          } else {
+            // Not colliding anymore, clear collision state
+            if wasColliding {
+              magnet1.clearCollision()
+              magnet2.clearCollision()
+            }
+          }
+        }
       }
     }
 

@@ -558,6 +558,9 @@ extension MagneticWanderer {
     private let contactThreshold: Float = 2.0  // Trigger repulsion after 2s of contact
     private let repulsionDuration: Float = 2.0  // Repel for 2 seconds
 
+    // Magnet-to-magnet collision tracking
+    private var collidingWithMagnet: b2BodyId? = nil
+
     /// Check if magnet is currently in repulsion mode
     var isRepelling: Bool {
       repulsionTimeRemaining > 0
@@ -722,6 +725,22 @@ extension MagneticWanderer {
       let count = contacts.count
       let totalDuration = contacts.values.reduce(0, +)
       return (count: count, totalDuration: totalDuration)
+    }
+
+    /// Check if this magnet is currently colliding with another specific magnet
+    func isCollidingWith(_ magnetBodyId: b2BodyId) -> Bool {
+      guard let collidingId = collidingWithMagnet else { return false }
+      return collidingId == magnetBodyId
+    }
+
+    /// Mark this magnet as colliding with another magnet
+    func setColliding(with magnetBodyId: b2BodyId) {
+      collidingWithMagnet = magnetBodyId
+    }
+
+    /// Clear collision state
+    func clearCollision() {
+      collidingWithMagnet = nil
     }
 
     /// Calculate magnetic force between this magnet and another body
