@@ -29,10 +29,6 @@ struct LookAwaySettings: View {
 
     // Load the last saved schedule from disk.
     _schedule = State(initialValue: storage.loadSchedule())
-
-    // When the settings window is opened, pause the app state to prevent
-    // the app from blocking user interaction while the settings are being edited.
-    appState.schedule.pause()
   }
 
   var body: some View {
@@ -51,6 +47,15 @@ struct LookAwaySettings: View {
         .tabItem {
           Label("Shortcuts", systemImage: "info.circle")
         }
+    }
+    .onAppear {
+      // Pause the schedule when the settings window is opened.
+      appState.schedule.pause()
+    }
+    .onDisappear {
+      // Resume the schedule when the settings window is closed.
+      // This ensures the schedule resumes regardless of which tab was visited.
+      appState.schedule.resume()
     }
   }
 }

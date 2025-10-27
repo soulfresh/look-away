@@ -137,7 +137,7 @@ struct Schedule: View {
     // Save the current app state to disk.
     storage.saveSchedule(schedule)
 
-    logger.log("Starting new schedule...")
+    logger.log("Updating schedule configuration...")
     // Update app state with the new schedule.
     appState.schedule.setSchedule(
       schedule.enumerated().map { i, config in
@@ -151,9 +151,6 @@ struct Schedule: View {
           )
         )
       })
-
-    // Start the new schedule.
-    appState.schedule.start()
   }
 }
 
