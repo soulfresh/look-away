@@ -1,20 +1,23 @@
+Next:
 - Hide Look Away from screen share
-- Alt + Ctrl + Cmd + b should advance the next break if called in the middle of
-  a break allowing me to navigate to a larger break. 
+- Jump to next long break
+  - Should be able to jump both when working or in a short break
   - This should not impact my skipped or delayed count
-- Push skipped/delayed/completed below notch
-- Indicate paused state in icon (color?, strikethrough?)
-- Allow jumping to a specific schedule
-- Display shortcut keys in menu from KeyboardShortcuts library
-- Customize tracking icon to look like eye
+- Less frequent updates when menu closed and not blocking
 - Update AppIcon
+
+Tech:
+- GitHub actions
+- Disable activity listeners if schedule is empty
+
+Other:
+- Display shortcut keys in menu from KeyboardShortcuts library
+- Startup screen with
+  - open on login
+  - set keyboard shortcuts
 - Make settings window look more like a native Settings tab bar
 - Don't reset schedule when closing settings if the settings didn't change
 - Pause when certain apps are opened
-- Reset skipped/delayed/completed tracking on the next day
-- Reset to start of cycle when the screen is turned off or user logs out
-- Unpause when logging back in the next day
-- Delay blocker if user is typing
 - Exercise instructions
 - Improve usablility of Schedule form
   - accessibility

@@ -42,6 +42,8 @@ class BlockingWindow: NSWindow {
     // Make sure we cover the entire screen
     self.level = debug ? .floating : .screenSaver
     self.isReleasedWhenClosed = false
+    // Hide from screen sharing applications
+    self.sharingType = .none
     // Assign the window contents
     self.contentView = contentView
 
