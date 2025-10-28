@@ -26,14 +26,38 @@ class Logger: Logging {
   private let queue = DispatchQueue(label: "com.lookaway.performanceTimer")
   private var timers: [String: Date] = [:]
   private let dateFormatter: DateFormatter
-  private let logFileURL: URL?
+  private(set) var logFileURL: URL?
   private let maxLines: Int?
+
+  /// Returns the default log file URL in `Application Support/LookAway/app.log`
+  static func defaultLogFileURL() -> URL? {
+    guard
+      let appSupport = FileManager.default.urls(
+        for: .applicationSupportDirectory, in: .userDomainMask
+      ).first
+    else {
+      return nil
+    }
+
+    let dir = appSupport.appendingPathComponent("LookAway", isDirectory: true)
+    return dir.appendingPathComponent("app.log")
+  }
+
+  /// Returns the hardware model identifier (e.g., "MacBookPro18,1")
+  private static func hardwareModel() -> String {
+    var size = 0
+    sysctlbyname("hw.model", nil, &size, nil, 0)
+    var model = [CChar](repeating: 0, count: size)
+    sysctlbyname("hw.model", &model, &size, nil, 0)
+    return String(cString: model)
+  }
 
   init(
     enabled: Bool = true,
     level: LogLevel = .debug,
-    /// Whether to log to a file in `Application Support/LookAway/app.log`
-    logToFile: Bool = true,
+    /// The file URL where logs should be written. If `nil`, logs will only be printed to console.
+    /// Use `Logger.defaultLogFileURL()` to get the default location.
+    logFileURL: URL? = nil,
     /// The maximum number of lines to keep in the log file. Older lines will be removed.
     /// If `nil`, the log file will grow indefinitely.
     maxLines: Int? = 5000
@@ -41,19 +65,26 @@ class Logger: Logging {
     self.dateFormatter = DateFormatter()
     self.dateFormatter.dateFormat = "mm:ss.SSSS"
     self.enabled = enabled
+    self.logFileURL = logFileURL
     self.maxLines = maxLines
 
-    if logToFile,
-      let appSupport = FileManager.default.urls(
-        for: .applicationSupportDirectory, in: .userDomainMask
-      ).first
-    {
-      let dir = appSupport.appendingPathComponent("LookAway", isDirectory: true)
+    // Ensure parent directory exists if logging to file
+    if let url = logFileURL {
+      let dir = url.deletingLastPathComponent()
       try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-      self.logFileURL = dir.appendingPathComponent("app.log")
-    } else {
-      self.logFileURL = nil
     }
+
+    let fullDateFormatter = DateFormatter()
+    fullDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+
+    log("")
+    log("----------------------------")
+    log("\(fullDateFormatter.string(from: Date()))")
+    log("OS: \(ProcessInfo.processInfo.operatingSystemVersionString)")
+    log("Model: \(Self.hardwareModel())")
+    log("----------------------------")
+    log("")
+    log("Logger initialized. Log file: \(logFileURL?.path ?? "none")")
   }
 
   private func timeStamp() -> String {
@@ -155,7 +186,7 @@ class Logger: Logging {
     let duration = endTime.timeIntervalSince(startTime)
     let logMsg = "\(label): \(String(format: "%.3f", duration * 1000)) ms"
     print(logMsg)
-    
+
     queue.async {
       self.writeToFile(logMsg)
     }

@@ -56,10 +56,10 @@ struct AppMenu: View {
       schedule.startLongBreak()
     }
     .keyboardShortcut("b", modifiers: [.command, .option, .control])
-//    Button("Next Break") {
-//      schedule.startBreak()
-//    }
-//    .keyboardShortcut("n", modifiers: [.command, .option, .control])
+    //    Button("Next Break") {
+    //      schedule.startBreak()
+    //    }
+    //    .keyboardShortcut("n", modifiers: [.command, .option, .control])
     Divider()
     Button("Settings") {
       appState.showSettings = true
@@ -101,7 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   override init() {
     let logger = Logger(
       enabled: !Environment.isTesting,
-      logToFile: Environment.isDebug
+      logFileURL: !Environment.isDebug ? Logger.defaultLogFileURL() : nil,
     )
     self.logger = logger
 
@@ -217,7 +217,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
       rootView: LookAwaySettings(
         state: appState,
         storage: storage,
-        logger: logger
+        logger: logger,
+        logFileURL: logger.logFileURL,
       )
     )
     win.title = "LookAway Settings"

@@ -1,9 +1,7 @@
 Next:
 - Less frequent updates when menu closed and not blocking
-- Update AppIcon
 
 Tech:
-- GitHub actions
 - Disable activity listeners if schedule is empty
 
 Other:

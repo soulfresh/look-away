@@ -8,6 +8,8 @@ struct LookAwaySettings: View {
   var baseLogger: Logging
   /// The logger used to log events in this view.
   var logger: Logging
+  /// The log file URL, if logging to a file is enabled
+  var logFileURL: URL?
 
   /// The temporary schedule being edited by the user. When the view
   /// is removed, this schedule will be saved to disk and converted
@@ -16,9 +18,10 @@ struct LookAwaySettings: View {
   /// Whether or not the user is reordering the schedule.
   @State private var isSorting = false
 
-  init(state: AppState, storage: Storage, logger: Logging) {
+  init(state: AppState, storage: Storage, logger: Logging, logFileURL: URL? = nil) {
     appState = state
     self.storage = storage
+    self.logFileURL = logFileURL
 
     let l = LogWrapper(
       logger: logger,
@@ -33,7 +36,7 @@ struct LookAwaySettings: View {
 
   var body: some View {
     TabView {
-      General()
+      General(logFileURL: logFileURL)
         .tabItem {
           Label("General", systemImage: "gear")
         }
