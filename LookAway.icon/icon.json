@@ -1,9 +1,6 @@
 {
   "fill" : {
-    "linear-gradient" : [
-      "display-p3:0.26934,0.53415,0.60374,1.00000",
-      "display-p3:0.33923,0.29861,0.33115,1.00000"
-    ]
+    "solid" : "display-p3:0.24000,0.24000,0.24000,1.00000"
   },
   "groups" : [
     {
@@ -12,8 +9,8 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "1_Iris_Timer.svg",
-          "name" : "1_Iris_Timer",
+          "image-name" : "1_Iris_Timer 2.svg",
+          "name" : "1_Iris_Timer 2",
           "position" : {
             "scale" : 0.22,
             "translation-in-points" : [
@@ -51,12 +48,12 @@
       ],
       "lighting" : "combined",
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "none",
         "opacity" : 0.54
       },
-      "specular" : true,
+      "specular" : false,
       "translucency" : {
-        "enabled" : true,
+        "enabled" : false,
         "value" : 0
       }
     }

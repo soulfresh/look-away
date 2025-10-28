@@ -1,10 +1,3 @@
-//
-//  MicrophoneActivityMonitor.swift
-//  LookAway
-//
-//  Created by robert marc wren on 10/24/25.
-//
-
 import AVFoundation
 import CoreAudio
 import Foundation
