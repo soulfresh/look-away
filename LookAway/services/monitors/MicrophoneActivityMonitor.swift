@@ -255,7 +255,11 @@ class MicrophoneActivityMonitor {
   /// The last emitted connection state.
   private var lastState: ConnectedState? = nil
 
+  /// The list of microphone devices.
   private(set) var devices: [MicrophoneInfo] = []
+
+  /// Filters used to ignore certain microphones by name or unique ID.
+  private var filter: [String]
 
   /// The number of microphones currently capturing audio.
   var activeMicrophoneCount: Int {
@@ -270,9 +274,15 @@ class MicrophoneActivityMonitor {
 
   init(
     logger: Logging,
+    filter: [String] = [
+      // These devices are always running when connected so we cannot use them
+      // to deterimine if the user is actively using a microphone.
+      "Universal Audio"
+    ],
     deviceProvider: AudioDeviceProvider? = nil
   ) {
     self.logger = logger
+    self.filter = filter
     self.deviceProvider = deviceProvider ?? CoreAudioDeviceProvider(logger: logger)
 
     logger.log("Initializing microphone state")
@@ -301,17 +311,26 @@ class MicrophoneActivityMonitor {
       let modelUID = getDeviceModelUID(deviceID: deviceID)
       let transportType = getDeviceTransportType(deviceID: deviceID)
 
-      microphoneInfos.append(
-        MicrophoneInfo(
-          id: deviceID,
-          uniqueID: uniqueID,
-          name: name,
-          manufacturer: manufacturer,
-          isRunning: running,
-          modelUID: modelUID,
-          transportType: transportType
-        )
+      let mic = MicrophoneInfo(
+        id: deviceID,
+        uniqueID: uniqueID,
+        name: name,
+        manufacturer: manufacturer,
+        isRunning: running,
+        modelUID: modelUID,
+        transportType: transportType
       )
+
+      guard
+        !filter.contains(where: { term in
+          name.contains(term) || manufacturer.contains(term)
+        })
+      else {
+        logger.log("Ignoring microphone: \(mic)")
+        continue
+      }
+
+      microphoneInfos.append(mic)
     }
     logger.debug("Device Details:")
     microphoneInfos.forEach { info in

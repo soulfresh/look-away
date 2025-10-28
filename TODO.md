@@ -1,8 +1,4 @@
 Next:
-- Break phase never starts
-- Jump to next long break
-  - Should be able to jump both when working or in a short break
-  - This should not impact my skipped or delayed count
 - Less frequent updates when menu closed and not blocking
 - Update AppIcon
 
@@ -15,6 +11,8 @@ Other:
 - Startup screen with
   - open on login
   - set keyboard shortcuts
+- Enable/disable mic/camera activity listeners in Settings pane
+- Allow users to specify mic/camera devices for the activity listener to ignore
 - Make settings window look more like a native Settings tab bar
 - Don't reset schedule when closing settings if the settings didn't change
 - Pause when certain apps are opened
