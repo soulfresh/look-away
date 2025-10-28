@@ -64,6 +64,9 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
   private let logger: Logging
 
   private let clock: ClockType
+  /// Whether to check for inactivity before starting the break. This includes
+  /// both user activity and device activity (camera/microphone).
+  private var waitForInactivity: Bool = true
   // A provider for camera device information.
   private var cameraProvider: CameraDeviceProvider?
   // A provider for microphone device information.
@@ -86,7 +89,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
     cameraProvider: CameraDeviceProvider? = nil,
-    microphoneProvider: AudioDeviceProvider? = nil
+    microphoneProvider: AudioDeviceProvider? = nil,
+    waitForInactivity: Bool = true,
   ) {
     self.workLength = frequency
     self.breakLength = duration
@@ -95,6 +99,7 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     self.clock = clock ?? ContinuousClock() as! ClockType
     self.cameraProvider = cameraProvider
     self.microphoneProvider = microphoneProvider
+    self.waitForInactivity = waitForInactivity
   }
 
   convenience init(
@@ -104,7 +109,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
     inactivityThresholds: [ActivityThreshold]? = nil,
     clock: ClockType? = nil,
     cameraProvider: CameraDeviceProvider? = nil,
-    microphoneProvider: AudioDeviceProvider? = nil
+    microphoneProvider: AudioDeviceProvider? = nil,
+    waitForInactivity: Bool = true,
   ) {
     self.init(
       frequency: TimeSpan(value: frequency, unit: .second),
@@ -113,7 +119,8 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
       inactivityThresholds: inactivityThresholds,
       clock: clock,
       cameraProvider: cameraProvider,
-      microphoneProvider: microphoneProvider
+      microphoneProvider: microphoneProvider,
+      waitForInactivity: waitForInactivity,
     )
   }
 
@@ -136,15 +143,22 @@ class WorkCycle<ClockType: Clock<Duration>>: ObservableObject, CustomStringConve
           duration: workingDuration ?? self.workLength.seconds,
           phase: Phase.working
         )
+
         // Wait for the user to stop interacting with the system
-        self.logger.log("Waiting for inactivity...")
-        try await self.waitForInactivity()
+        if self.waitForInactivity {
+          self.logger.log("Waiting for inactivity...")
+          try await self.waitForInactivity()
+        } else {
+          self.logger.log("Skipping inactivity watcher")
+        }
+
         // Then move to the breaking phase.
         self.logger.log("Starting break")
         try await self.runPhase(
           duration: self.breakLength.seconds,
           phase: Phase.breaking
         )
+
         self.logger.log("Break complete")
         // Finally, set the phase to finished.
         self.phase = Phase.finished

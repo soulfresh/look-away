@@ -25,10 +25,8 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   /// The total number of work cycles STARTED
   @Published private(set) var count: Int = 0
 
-  /// Gets the current index of the work cycle in the schedule.
-  var index: Int {
-    (count - 1) % schedule.count
-  }
+  /// The current index in the schedule (0-based).
+  private(set) var index: Int = -1
 
   /// The number of fully completed breaks (ie. they were not ended prematurely).
   var completed: Int {
@@ -101,10 +99,12 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     if fullReset {
       logger.log("Reset break schedule state.")
       count = 0  // must be reset in order to start at the beginning of the schedule
+      index = -1  // will be set to 0 when the first cycle starts
       skipped = 0  // must be reset because count was reset
       delayed = 0  // will be reset in startNextWorkCycle anyway
     } else {
       logger.log("Reset to start of schedule.")
+      // Don't reset index - we want to stay on the current work cycle
     }
 
     remainingTime = 0  // will be reset once the first cycle phase changes
@@ -128,7 +128,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     if count == 0 {
       // Start the first work cycle.
       logger.log("Kicking off the first work cycle.")
-      startNextWorkCycle()
+      startWorkCycle()
     } else {
       logger.warn(
         "AppState already started with \(count) work cycles. Skipping this start request.")
@@ -171,6 +171,50 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     cycle?.startBreak(breakDuration)
   }
 
+  /// Start the break at the given index in the schedule.
+  func startBreak(at newIndex: Int) {
+    startWorkCycle(atIndex: newIndex, startInBreak: true)
+  }
+
+  /// Start the next "long" break. This will find the longest break in the schedule
+  /// and advance to the next work cycle that has that break length. If we are in the
+  /// work or break cycle of a "longest break", then we either start or continue the current break.
+  func startLongBreak() {
+    // Find the longest break in the schedule.
+    let longestBreakLength =
+      schedule
+      .map { $0.breakLength.seconds }
+      .max()
+
+    guard let longestBreakLength = longestBreakLength else {
+      logger.warn("Unable to find the longest break in the schedule. \(schedule)")
+      return
+    }
+
+    // Find the next break in the schedule (including the current one) that has
+    // a break length equal to the longest break length.
+    // Search starting from current index, wrapping around.
+    let scheduleCount = schedule.count
+    for offset in 0..<scheduleCount {
+      // If we are currently in a break, look for the next cycle after this one.
+      // Otherwise, consider the current cycle as well. It's possible that
+      // we are already taking the longest break, in which case we should
+      // just end up staing in this break.
+      let start = isBlocking ? 1 : 0
+      let searchIndex = (start + index + offset) % scheduleCount
+      if schedule[searchIndex].breakLength.seconds == longestBreakLength {
+        // Found the next work cycle with the longest break.
+        // Jump to this cycle and start its break.
+        // index = searchIndex
+        // logger.log("Starting long break at cycle \(count) [index: \(index)]")
+        startBreak(at: searchIndex)
+        return
+      }
+    }
+
+    logger.warn("We are already in the longest break. No action taken.")
+  }
+
   /// Rewind to the working phase of the current work cycle in our schedule.
   ///
   /// - Parameter duration The amount of time to work for before restarting the
@@ -188,19 +232,23 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   func skip() {
     skipped += 1
     // Advance to the next work cycle.
-    startNextWorkCycle()
+    startWorkCycle()
   }
 
-  /// Start the next work cycle. This will enter into the working portion of
-  /// that cycle.
-  private func startNextWorkCycle(_ workingDuration: TimeInterval? = nil) {
+  /// Start a work cycle at the specified index, or the next work cycle if no
+  /// index is provided.
+  ///
+  /// - Parameter atIndex: The index in the schedule to jump to. If nil, advances
+  ///     to the next work cycle.
+  /// - Parameter startInBreak: If true, starts the cycle in the break phase.
+  ///     Otherwise, starts in the working phase.
+  private func startWorkCycle(atIndex: Int? = nil, startInBreak: Bool = false) {
     guard schedule.count > 0 else {
-      // TODO Warning
-      logger.error("No work cycles in the schedule. Cannot start next work cycle.")
+      logger.warn("No work cycles in the schedule. Cannot start next work cycle.")
       return
     }
 
-    logger.log("Shutting down the current work cycle.")
+    logger.log("Next Work Cycle: Shutting down the current work cycle.")
 
     // Stop listening to the old work cycle.
     cancellables.forEach { $0.cancel() }
@@ -212,12 +260,17 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     // Reset the delayed counter
     delayed = 0
 
-    // Advance to the next work cycle in the schedule.
+    // Advance to the specified or next work cycle in the schedule.
     count += 1
+    if let atIndex = atIndex {
+      index = atIndex % schedule.count
+    } else {
+      index = (index + 1) % schedule.count
+    }
 
     // This should never happen given the guard at the beginning of this function.
     guard let c = cycle else {
-      logger.error("Unable to get the current work cycle at index \(count) of \(schedule.count).")
+      logger.error("Unable to get the current work cycle at index \(index) of \(schedule.count).")
       return
     }
 
@@ -238,8 +291,12 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
 
     logger.log("Starting work cycle \(count) [index: \(index)] \(c)")
     logger.log("Skipped: \(skipped), Delayed: \(delayed), Completed: \(completed)")
-    // Start working in the new cycle.
-    c.startWorking(workingDuration)
+    // Start the cycle in the appropriate phase.
+    if startInBreak {
+      c.startBreak()
+    } else {
+      c.startWorking()
+    }
   }
 
   /// Updates the AppState based on the current phase of the active work cycle.
@@ -269,7 +326,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
       // completed += 1
       // Start the next work cycle in the schedule.
       Task {
-        self.startNextWorkCycle()
+        self.startWorkCycle()
       }
     }
   }

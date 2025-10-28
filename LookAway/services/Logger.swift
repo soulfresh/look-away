@@ -100,8 +100,8 @@ class Logger: Logging {
   func error(_ message: String) {
     guard enabled, logLevel <= .error else { return }
     let logMsg = self.prefix() + "ERROR: \(message)".red()
+    print(logMsg)
     queue.async {
-      print(logMsg)
       self.writeToFile(logMsg)
     }
   }
@@ -109,8 +109,8 @@ class Logger: Logging {
   func warn(_ message: String) {
     guard enabled, logLevel <= .warn else { return }
     let logMsg = self.prefix() + "WARN: \(message)".yellow()
+    print(logMsg)
     queue.async {
-      print(logMsg)
       self.writeToFile(logMsg)
     }
   }
@@ -118,8 +118,8 @@ class Logger: Logging {
   func log(_ message: String) {
     guard enabled, logLevel <= .info else { return }
     let logMsg = self.prefix() + message
+    print(logMsg)
     queue.async {
-      print(logMsg)
       self.writeToFile(logMsg)
     }
   }
@@ -127,8 +127,8 @@ class Logger: Logging {
   func debug(_ message: String) {
     guard enabled, logLevel <= .debug else { return }
     let logMsg = self.prefix() + message.grey()
+    print(logMsg)
     queue.async {
-      print(logMsg)
       self.writeToFile(logMsg)
     }
   }
@@ -145,17 +145,18 @@ class Logger: Logging {
 
   func timeEnd(_ label: String) {
     let endTime = Date()
+    // Whether or not logging is enabled, make sure to remove this timer
+    defer { self.timers.removeValue(forKey: label) }
+
+    // If logging is disabled, skip the print but ensure the timer is removed.
+    guard self.enabled, self.logLevel >= .info else { return }
+    guard let startTime = self.timers[label] else { return }
+
+    let duration = endTime.timeIntervalSince(startTime)
+    let logMsg = "\(label): \(String(format: "%.3f", duration * 1000)) ms"
+    print(logMsg)
+    
     queue.async {
-      // Whether or not logging is enabled, make sure to remove this timer
-      defer { self.timers.removeValue(forKey: label) }
-
-      // If logging is disabled, skip the print but ensure the timer is removed.
-      guard self.enabled, self.logLevel >= .info else { return }
-      guard let startTime = self.timers[label] else { return }
-
-      let duration = endTime.timeIntervalSince(startTime)
-      let logMsg = "\(label): \(String(format: "%.3f", duration * 1000)) ms"
-      print(logMsg)
       self.writeToFile(logMsg)
     }
   }

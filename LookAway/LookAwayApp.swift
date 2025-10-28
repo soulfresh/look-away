@@ -53,9 +53,13 @@ struct AppMenu: View {
     // TODO Get the shortcut from KeyboardShortcuts somehow
     .keyboardShortcut("p", modifiers: [.command, .option, .control])
     Button("Take a Break") {
-      schedule.startBreak()
+      schedule.startLongBreak()
     }
     .keyboardShortcut("b", modifiers: [.command, .option, .control])
+//    Button("Next Break") {
+//      schedule.startBreak()
+//    }
+//    .keyboardShortcut("n", modifiers: [.command, .option, .control])
     Divider()
     Button("Settings") {
       appState.showSettings = true
@@ -97,8 +101,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   override init() {
     let logger = Logger(
       enabled: !Environment.isTesting,
-      logToFile:
-        Environment.isDebug)
+      logToFile: Environment.isDebug
+    )
     self.logger = logger
 
     storage = Storage(
@@ -174,6 +178,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
     }
     KeyboardShortcuts.onKeyUp(for: .takeBreak) { [weak self] in
       self?.appState.schedule.startBreak()
+    }
+    KeyboardShortcuts.onKeyUp(for: .takeLongBreak) { [weak self] in
+      self?.appState.schedule.startLongBreak()
     }
   }
 

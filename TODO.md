@@ -1,5 +1,5 @@
 Next:
-- Hide Look Away from screen share
+- Break phase never starts
 - Jump to next long break
   - Should be able to jump both when working or in a short break
   - This should not impact my skipped or delayed count

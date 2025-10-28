@@ -28,7 +28,11 @@ struct Storage {
     WorkCycleConfig(
       workLength: TimeSpan(value: 15, unit: .second),
       breakLength: TimeSpan(value: 10, unit: .second)
-    )
+    ),
+    WorkCycleConfig(
+      workLength: TimeSpan(value: 15, unit: .second),
+      breakLength: TimeSpan(value: 15, unit: .second)
+    ),
   ]
 
   private var logger: Logging

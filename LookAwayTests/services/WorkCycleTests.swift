@@ -41,13 +41,14 @@ class WorkCycleTestContext {
     self.interactionTime = interactionTime
 
     // If no thresholds are provided, use a default threshold referencing interactionTime.value
-    let thresholds = inactivityThresholds ?? [
-      ActivityThreshold(
-        name: "keyUp",
-        threshold: 10,
-        callback: { interactionTime.value }
-      )
-    ]
+    let thresholds =
+      inactivityThresholds ?? [
+        ActivityThreshold(
+          name: "keyUp",
+          threshold: 10,
+          callback: { interactionTime.value }
+        )
+      ]
 
     brk = WorkCycleSpy(
       frequency: 100,
@@ -371,6 +372,47 @@ struct WorkCycleTests {
 
     #expect(breakInstance.phase == .working(remaining: 90))
 
+    await test.afterEach()
+  }
+
+  @Test("Should be able to skip the inactivity listening phase.")
+  func testSkipInactivityListening() async {
+    let test = WorkCycleTestContext()
+    let clock = test.clock
+
+    // Create a work cycle with waitForInactivity: false
+    let brk = WorkCycle(
+      frequency: 10,
+      duration: 5,
+      logger: Logger(enabled: false),
+      inactivityThresholds: [
+        ActivityThreshold(
+          name: "keyUp",
+          threshold: 10,
+          callback: { test.interactionTime.value }
+        )
+      ],
+      clock: clock.clock,
+      cameraProvider: MockCameraDeviceProvider(devices: []),
+      microphoneProvider: MockAudioDeviceProvider(devices: []),
+      waitForInactivity: false
+    )
+
+    // Start working
+    brk.startWorking()
+    await clock.tick()
+
+    #expect(brk.phase == .working(remaining: 10))
+
+    // Advance through the working phase (10 seconds) + transition (1 second)
+    await clock.advanceBy(11)
+
+    // Should be in breaking phase now
+    #expect(brk.phase == .breaking(remaining: 5))
+
+    // The work cycle should never have entered the waiting phase when waitForInactivity is false
+
+    brk.cancel()
     await test.afterEach()
   }
 }

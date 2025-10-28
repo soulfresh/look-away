@@ -7,6 +7,7 @@ struct InactivityListenerTestContext {
   let clock: TestClock<Duration>
   let listener: InactivityListener<TestClock<Duration>>
   let cameraProvider: MockCameraDeviceProvider
+  let microphoneProvider: MockAudioDeviceProvider
   let lastUserInteraction: InteractionTime
 
   init(
@@ -31,13 +32,28 @@ struct InactivityListenerTestContext {
     let logger = Logger(enabled: debug)
     let clock = TestClock()
     self.clock = clock
-    
+
     let interactionTime = InteractionTime(value: lastInteraction)
     self.lastUserInteraction = interactionTime
-    
+
     self.cameraProvider = MockCameraDeviceProvider(
       devices: cameras
     )
+
+    self.microphoneProvider = MockAudioDeviceProvider(
+      devices: [
+        MicrophoneActivityMonitor.MicrophoneInfo(
+          id: 0,
+          uniqueID: "mock-mic-uid-0",
+          name: "Mock Microphone",
+          manufacturer: "Mock Manufacturer",
+          isRunning: false,
+          modelUID: "MockModel",
+          transportType: "USB"
+        )
+      ]
+    )
+
     self.listener = InactivityListener(
       logger: logger,
       inactivityThresholds: [
@@ -49,6 +65,7 @@ struct InactivityListenerTestContext {
       ],
       clock: clock,
       cameraProvider: cameraProvider,
+      microphoneProvider: microphoneProvider
     )
   }
 }

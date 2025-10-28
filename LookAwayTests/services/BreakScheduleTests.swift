@@ -17,7 +17,11 @@ class BreakScheduleTestContext {
   let cameraProvider: MockCameraDeviceProvider
   let microphoneProvider: MockAudioDeviceProvider
 
-  init(debug: Bool = false) {
+  init(
+    workCycles: [(work: TimeInterval, break: TimeInterval)]? = nil,
+    waitForInactivity: Bool = true,
+    debug: Bool = false
+  ) {
     let logger = Logger(enabled: debug)
 
     let cameraProvider = MockCameraDeviceProvider(
@@ -55,39 +59,37 @@ class BreakScheduleTestContext {
     )
     self.microphoneProvider = microphoneProvider
 
+    // Create work cycles from the provided configuration or use defaults
+    let cycles: [(work: TimeInterval, break: TimeInterval)] =
+      workCycles ?? [
+        (work: WORK_1, break: BREAK_1),
+        (work: WORK_2, break: BREAK_2),
+      ]
+
+    // Capture clock property before using it in closure
+    let testClock = clock.clock
+
+    let workCycleSchedule = cycles.enumerated().map { index, config in
+      WorkCycle(
+        frequency: config.work,
+        duration: config.break,
+        logger: LogWrapper(logger: logger, label: "Test WorkCycle \(index)"),
+        inactivityThresholds: [
+          ActivityThreshold(
+            name: "keyUp",
+            threshold: INACTIVITY_LENGTH,
+            callback: { INACTIVITY_LENGTH * TimeInterval(index + 1) }
+          )
+        ],
+        clock: testClock,
+        cameraProvider: cameraProvider,
+        microphoneProvider: microphoneProvider,
+        waitForInactivity: waitForInactivity,
+      )
+    }
+
     schedule = BreakSchedule(
-      schedule: [
-        WorkCycle(
-          frequency: WORK_1,
-          duration: BREAK_1,
-          logger: LogWrapper(logger: logger, label: "Test WorkCycle 0"),
-          inactivityThresholds: [
-            ActivityThreshold(
-              name: "keyUp",
-              threshold: INACTIVITY_LENGTH,
-              callback: { INACTIVITY_LENGTH + 1 }
-            )
-          ],
-          clock: clock.clock,
-          cameraProvider: cameraProvider,
-          microphoneProvider: microphoneProvider
-        ),
-        WorkCycle(
-          frequency: WORK_2,
-          duration: BREAK_2,
-          logger: LogWrapper(logger: logger, label: "Test WorkCycle 1"),
-          inactivityThresholds: [
-            ActivityThreshold(
-              name: "keyUp",
-              threshold: INACTIVITY_LENGTH,
-              callback: { INACTIVITY_LENGTH * 2 }
-            )
-          ],
-          clock: clock.clock,
-          cameraProvider: cameraProvider,
-          microphoneProvider: microphoneProvider
-        ),
-      ],
+      schedule: workCycleSchedule,
       logger: LogWrapper(logger: logger, label: "Test schedule"),
     )
   }
@@ -251,12 +253,12 @@ struct BreakScheduleTests {
   func testRestartWorkCycle() async {
     let test = BreakScheduleTestContext()
     test.schedule.start()
-    
+
     // Start in the working phase
     await test.clock.tick()
     #expect(test.schedule.isBlocking == false)
     #expect(test.schedule.remainingTime == WORK_1)
-    
+
     // Get to the breaking phase
     await test.clock.advanceBy(11)
     #expect(test.schedule.isBlocking == true)
@@ -266,12 +268,12 @@ struct BreakScheduleTests {
     #expect(test.schedule.delayed == 0)
     #expect(test.schedule.count == 1)
     #expect(test.schedule.completed == 0)
-    
+
     // Restart the current work cycle
     test.schedule.restartWorkCycle()
     // Give the schedule a chance to process the restart
     await test.clock.tick()
-    
+
     #expect(test.schedule.isBlocking == false)
     #expect(test.schedule.remainingTime == WORK_1)
     #expect(test.schedule.isPaused == false)
@@ -285,16 +287,16 @@ struct BreakScheduleTests {
   func testRestartSchedule() async {
     let test = BreakScheduleTestContext()
     test.schedule.start()
-    
+
     // Start in the working phase
     await test.clock.tick()
     #expect(test.schedule.isBlocking == false)
     #expect(test.schedule.remainingTime == WORK_1)
-    
+
     // Skip to the next work cycle
     test.schedule.skip()
     await test.clock.tick()
-    
+
     #expect(test.schedule.isBlocking == false)
     #expect(test.schedule.remainingTime == WORK_2)
     #expect(test.schedule.isPaused == false)
@@ -302,11 +304,11 @@ struct BreakScheduleTests {
     #expect(test.schedule.delayed == 0)
     #expect(test.schedule.count == 2)
     #expect(test.schedule.completed == 0)
-    
+
     // Restart the entire schedule
     test.schedule.restartSchedule(fullReset: true)
     await test.clock.tick()
-    
+
     #expect(test.schedule.isBlocking == false)
     #expect(test.schedule.remainingTime == WORK_1)
     #expect(test.schedule.isPaused == false)
@@ -577,6 +579,297 @@ struct BreakScheduleTests {
     #expect(schedule.delayed == 0)
     #expect(schedule.count == 2)
     #expect(schedule.completed == 0)
+
+    await context.afterEach()
+  }
+
+  @Test("Should be able to start the break at a specific index in the schedule.")
+  func testStartAtIndex() async {
+    // Create a schedule with 5 work cycles with different break lengths
+    // Work: [5, 5, 5, 5, 5], Break: [2, 4, 6, 8, 10]
+    let context = BreakScheduleTestContext(
+      workCycles: [
+        (work: 5, break: 2),  // index 0
+        (work: 5, break: 4),  // index 1
+        (work: 5, break: 6),  // index 2 - start here
+        (work: 5, break: 8),  // index 3
+        (work: 5, break: 10),  // index 4 - longest break
+      ]
+    )
+
+    // Start the schedule
+    context.schedule.start()
+    await context.clock.tick()
+
+    // Verify we start at index 0 in working phase
+    #expect(context.schedule.index == 0)
+    #expect(context.schedule.count == 1)
+    #expect(context.schedule.isBlocking == false)
+    #expect(context.schedule.remainingTime == 5)
+
+    // Advance to index 2 (middle of schedule)
+    // Cycle 0: work(5) + transition(1) + break(2) + transition(1) = 9 seconds
+    await context.clock.advanceBy(9)
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 2)
+
+    // Cycle 1: work(5) + transition(1) + break(4) + transition(1) = 11 seconds
+    await context.clock.advanceBy(11)
+    #expect(context.schedule.index == 2)
+    #expect(context.schedule.count == 3)
+
+    // Tick to ensure we're in the working phase of cycle 2
+    await context.clock.tick()
+    #expect(context.schedule.isBlocking == false)
+    #expect(context.schedule.remainingTime == 5)
+
+    // Now jump to index 4 and start its break
+    context.schedule.startBreak(at: 4)
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 4)
+    #expect(context.schedule.count == 4)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 10)
+
+    // Test wrap-around: jump to index 1 (earlier in the schedule)
+    context.schedule.startBreak(at: 1)
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 5)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 4)
+
+    // Test wrap-around to beginning: jump to index 0
+    context.schedule.startBreak(at: 0)
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 0)
+    #expect(context.schedule.count == 6)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 2)
+
+    await context.afterEach()
+  }
+
+  @Test(
+    "Should be able to start the longest break in the schedule when all breaks have different lengths."
+  )
+  func testStartLongestBreak() async {
+    // Create a schedule with 5 work cycles where the longest break is NOT in the middle
+    // Work: [5, 5, 5, 5, 5], Break: [2, 4, 6, 10, 8]
+    // Index 3 has the longest break (10 seconds)
+    let context = BreakScheduleTestContext(
+      workCycles: [
+        (work: 5, break: 2),  // index 0
+        (work: 5, break: 4),  // index 1
+        (work: 5, break: 6),  // index 2 - start here (middle, short break)
+        (work: 5, break: 8),  // index 3
+        (work: 5, break: 10),  // index 4 - longest break
+      ],
+      // Timing of the inactivity tracker is non-deterministic, making it hard to test
+      waitForInactivity: false,
+      debug: false
+    )
+
+    // Start the schedule
+    context.schedule.start()
+
+    // Verify we start at index 0
+    #expect(context.schedule.index == 0)
+    #expect(context.schedule.count == 1)
+    #expect(context.schedule.isBlocking == false)
+
+    // Advance to index 2 (middle of schedule) and get into the break phase
+    // Cycle 0: work(5) + transition(1) + break(2) + transition(1) = 9 seconds
+    await context.clock.advanceBy(9)
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 2)
+
+    // Cycle 1: work(5) + transition(1) + break(4) + transition(1) = 11 seconds
+    await context.clock.advanceBy(11)
+    #expect(context.schedule.index == 2)
+    #expect(context.schedule.count == 3)
+
+    // Advance through the work phase to get into the break phase of cycle 2
+    await context.clock.advanceBy(6)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 6)  // Currently in a 6-second break
+
+    // Call startLongBreak - should jump to index 3 (10-second break)
+    context.schedule.startLongBreak()
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 4)
+    #expect(context.schedule.count == 4)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 10)  // Now in the longest break
+
+    await context.afterEach()
+  }
+
+  @Test(
+    "Should find the longest break at the beginning of the schedule when all breaks have different lengths."
+  )
+  func testStartLongestBreakWrapping() async {
+    // Create a schedule with 5 work cycles where the longest break is NOT in the middle
+    // Work: [5, 5, 5, 5, 5], Break: [2, 4, 6, 10, 8]
+    // Index 3 has the longest break (10 seconds)
+    let context = BreakScheduleTestContext(
+      workCycles: [
+        (work: 5, break: 2),  // index 0
+        (work: 5, break: 10),  // index 1 - longest break
+        (work: 5, break: 4),  // index 2 - start here (middle, short break)
+        (work: 5, break: 6),  // index 3
+        (work: 5, break: 8),  // index 4
+      ],
+      // Timing of the inactivity tracker is non-deterministic, making it hard to test
+      waitForInactivity: false,
+      debug: false
+    )
+
+    // Start the schedule
+    context.schedule.start()
+    await context.clock.tick()
+
+    // Verify we start at index 0
+    #expect(context.schedule.index == 0)
+    #expect(context.schedule.count == 1)
+    #expect(context.schedule.isBlocking == false)
+
+    // Advance to index 2 (middle of schedule) and get into the break phase
+    // Cycle 0: work(5) + transition(1) + break(2) + transition(1) = 9 seconds
+    await context.clock.advanceBy(9)
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 2)
+
+    // Cycle 1: work(5) + transition(1) + break(10) + transition(1) = 17 seconds
+    await context.clock.advanceBy(17)
+    #expect(context.schedule.index == 2)
+    #expect(context.schedule.count == 3)
+
+    // Advance through the work phase to get into the break phase of cycle 2
+    await context.clock.advanceBy(6)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 4)  // Currently in a 6-second break
+
+    // Call startLongBreak - should jump to index 3 (10-second break)
+    context.schedule.startLongBreak()
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 4)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 10)  // Now in the longest break
+
+    await context.afterEach()
+  }
+
+  @Test(
+    "Should be able to start the longest break in the schedule when all breaks have the same length."
+  )
+  func testStartLongestBreakSameLength() async {
+    // Create a schedule where all breaks have the same length
+    // Work: [5, 5, 5, 5, 5], Break: [8, 8, 8, 8, 8]
+    let context = BreakScheduleTestContext(
+      workCycles: [
+        (work: 5, break: 8),  // index 0
+        (work: 5, break: 8),  // index 1 - start here
+        (work: 5, break: 8),  // index 2
+        (work: 5, break: 8),  // index 3
+        (work: 5, break: 8),  // index 4
+      ],
+      waitForInactivity: false,
+      debug: false
+    )
+
+    // Start the schedule
+    context.schedule.start()
+    await context.clock.tick()
+
+    // Verify we start at index 0
+    #expect(context.schedule.index == 0)
+    #expect(context.schedule.count == 1)
+    #expect(context.schedule.isBlocking == false)
+
+    // Advance to index 1 (second work cycle)
+    // Cycle 0: work(5) + transition(1) + break(8) + transition(1) = 15 seconds
+    await context.clock.advanceBy(15)
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 2)
+    #expect(context.schedule.isBlocking == false)
+    #expect(context.schedule.remainingTime == 5)
+
+    // Call startLongBreak while in working phase - should start the break for current cycle (index 1)
+    // Since all breaks are the same length, it should use the current cycle's break
+    context.schedule.startLongBreak()
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 3)  // Count increments because startBreak(at:) calls startNextWorkCycle
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 8)  // Break length for current cycle
+
+    await context.afterEach()
+  }
+
+  @Test(
+    "Should be able to start the longest break in the schedule when multiple breaks share the longest length."
+  )
+  func testStartLongestBreakMultipleSameLength() async {
+    // Create a schedule with multiple breaks sharing the longest length
+    // Work: [5, 5, 5, 5, 5], Break: [2, 10, 4, 6, 10]
+    // Indices 1 and 4 both have the longest break (10 seconds)
+    // We'll start at index 2, so it should find index 4 first (wrapping past index 2, 3, and finding 4)
+    let context = BreakScheduleTestContext(
+      workCycles: [
+        (work: 5, break: 2),  // index 0
+        (work: 5, break: 10),  // index 1 - longest break (first)
+        (work: 5, break: 4),  // index 2 - start here (middle, short break)
+        (work: 5, break: 6),  // index 3
+        (work: 5, break: 10),  // index 4 - longest break (second)
+      ],
+      waitForInactivity: false,
+      debug: false
+    )
+
+    // Start the schedule
+    context.schedule.start()
+    await context.clock.tick()
+
+    // Verify we start at index 0
+    #expect(context.schedule.index == 0)
+    #expect(context.schedule.count == 1)
+    #expect(context.schedule.isBlocking == false)
+
+    // Advance to index 2 (middle of schedule) and get into the break phase
+    // Cycle 0: work(5) + transition(1) + break(2) + transition(1) = 9 seconds
+    await context.clock.advanceBy(9)
+    #expect(context.schedule.index == 1)
+    #expect(context.schedule.count == 2)
+
+    // Cycle 1: work(5) + transition(1) + break(10) + transition(1) = 17 seconds
+    await context.clock.advanceBy(17)
+    #expect(context.schedule.index == 2)
+    #expect(context.schedule.count == 3)
+
+    // Advance through the work phase to get into the break phase of cycle 2
+    // work(5) + transition(1) = 6 seconds
+    await context.clock.advanceBy(6)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 4)  // Currently in a 4-second break
+
+    // Call startLongBreak - should search from index 2 and find the next longest break
+    // Search order: 3, 4, 0, 1, 2
+    // Should find index 4 (10-second break) before wrapping around to index 1
+    context.schedule.startLongBreak()
+    await context.clock.tick()
+
+    #expect(context.schedule.index == 4)
+    #expect(context.schedule.count == 4)
+    #expect(context.schedule.isBlocking == true)
+    #expect(context.schedule.remainingTime == 10)  // Now in the longest break
 
     await context.afterEach()
   }
