@@ -1,3 +1,10 @@
+Bug:
+- Schedule never resumes after changing schedule
+  - Open Settings > Schedule
+  - Change the schedule
+  - Close the settings window
+  - The new schedule is never started
+
 Next:
 - Less frequent updates when menu closed and not blocking
 

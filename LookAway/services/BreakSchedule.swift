@@ -88,23 +88,37 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.schedule = schedule
 
     // Reset trackers:
-    reset(fullReset: true)
+    reset(to: .appStart)
 
     printSchedule()
   }
 
+  enum ResetType {
+    /// Reset the entire state as if the app just started. This will reset the
+    /// break counts.
+    case appStart
+    /// Reset to the start of the schedule, but keep the break counts.
+    case scheduleStart
+    /// Reset to the start of the current work cycle.
+    case cycleStart
+  }
+
   /// Reset the state to start from the beginning. You will need to call start()
   /// to begin the first work cycle.
-  func reset(fullReset: Bool) {
-    if fullReset {
+  func reset(to: ResetType) {
+    switch to {
+    case .appStart:
       logger.log("Reset break schedule state.")
       count = 0  // must be reset in order to start at the beginning of the schedule
       index = -1  // will be set to 0 when the first cycle starts
       skipped = 0  // must be reset because count was reset
       delayed = 0  // will be reset in startNextWorkCycle anyway
-    } else {
+    case .scheduleStart:
       logger.log("Reset to start of schedule.")
-      // Don't reset index - we want to stay on the current work cycle
+      count = -1  // must be reset in order to start at the beginning of the
+    case .cycleStart:
+      // Don't reset count - we want to stay on the current work cycle
+      logger.log("Reset to start of current work cycle.")
     }
 
     remainingTime = 0  // will be reset once the first cycle phase changes
@@ -155,14 +169,14 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   }
 
   /// Restart the entire schedule from the beginning.
-  func restartSchedule(fullReset: Bool) {
-    reset(fullReset: fullReset)
-    start()
+  func restartSchedule(from: ResetType) {
+    reset(to: from)
+    startWorkCycle()
   }
 
   /// Restart the current work cycle from the beginning of the working phase.
   func restartWorkCycle() {
-    reset(fullReset: false)
+    reset(to: .cycleStart)
     cycle?.startWorking()
   }
 
@@ -348,10 +362,10 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
 
       if isBeforeToday {
         logger.log("Different day: resetting state.")
-        restartSchedule(fullReset: true)
+        restartSchedule(from: .appStart)
       } else {
         logger.log("Same day: starting schedule from beginning.")
-        restartSchedule(fullReset: false)
+        restartSchedule(from: .scheduleStart)
       }
     case .sleeping:
       logger.log("System is going to sleep. Pausing the work cycle.")

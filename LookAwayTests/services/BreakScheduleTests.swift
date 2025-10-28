@@ -306,7 +306,7 @@ struct BreakScheduleTests {
     #expect(test.schedule.completed == 0)
 
     // Restart the entire schedule
-    test.schedule.restartSchedule(fullReset: true)
+    test.schedule.restartSchedule(from: .appStart)
     await test.clock.tick()
 
     #expect(test.schedule.isBlocking == false)
