@@ -165,5 +165,23 @@ echo -e "${GREEN}✓ Version and release build committed${NC}"
 echo -e "\n${GREEN}=== Release Complete ===${NC}"
 echo -e "Version: ${GREEN}$NEW_VERSION${NC}"
 echo -e "Location: ${BLUE}$EXPORT_DIR/$SCHEME.app${NC}"
-echo -e "\nTo install:"
-echo -e "\ncp -r \"$EXPORT_DIR/$SCHEME.app\" /Applications/"
+
+# Ask to install
+echo -e "\n${YELLOW}Install app to /Applications/?${NC}"
+read -p "Continue? (y/n): " INSTALL_CONFIRM
+
+if [[ "$INSTALL_CONFIRM" =~ ^[Yy]$ ]]; then
+    echo -e "\n${BLUE}Installing app...${NC}"
+
+    # Remove existing app if present
+    if [ -d "/Applications/$SCHEME.app" ]; then
+        rm -rf "/Applications/$SCHEME.app"
+    fi
+
+    # Copy new app
+    cp -r "$EXPORT_DIR/$SCHEME.app" /Applications/
+    echo -e "${GREEN}✓ App installed to /Applications/$SCHEME.app${NC}"
+else
+    echo -e "\n${YELLOW}Skipping installation.${NC}"
+    echo -e "To install manually:\ncp -r \"$EXPORT_DIR/$SCHEME.app\" /Applications/"
+fi
