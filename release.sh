@@ -146,20 +146,21 @@ echo -e "${GREEN}✓ App exported to: $EXPORT_DIR${NC}"
 EXPORTED_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$EXPORT_DIR/$SCHEME.app/Contents/Info.plist")
 echo -e "${GREEN}✓ Verified app version: $EXPORTED_VERSION${NC}"
 
-# Commit version change
-echo -e "\n${BLUE}Committing version change...${NC}"
+# Commit version change and release build
+echo -e "\n${BLUE}Committing version change and release build...${NC}"
 echo -e "Enter commit body (optional, leave blank for subject only):"
 read -p "> " COMMIT_BODY
 
 COMMIT_SUBJECT="chore(release): $NEW_VERSION"
 
 git add "$PROJECT_FILE"
+git add "$EXPORT_DIR"
 if [ -z "$COMMIT_BODY" ]; then
     git commit -m "$COMMIT_SUBJECT"
 else
     git commit -m "$COMMIT_SUBJECT" -m "$COMMIT_BODY"
 fi
-echo -e "${GREEN}✓ Version committed${NC}"
+echo -e "${GREEN}✓ Version and release build committed${NC}"
 
 echo -e "\n${GREEN}=== Release Complete ===${NC}"
 echo -e "Version: ${GREEN}$NEW_VERSION${NC}"
