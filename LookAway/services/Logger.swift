@@ -65,6 +65,7 @@ class Logger: Logging {
     self.dateFormatter = DateFormatter()
     self.dateFormatter.dateFormat = "mm:ss.SSSS"
     self.enabled = enabled
+    self.logLevel = level
     self.logFileURL = logFileURL
     self.maxLines = maxLines
 

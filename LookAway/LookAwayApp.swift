@@ -46,6 +46,10 @@ struct AppMenu: View {
   @EnvironmentObject var appState: AppState
   @EnvironmentObject var schedule: BreakSchedule<ContinuousClock>
 
+  private var appVersion: String {
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+  }
+
   var body: some View {
     Button(schedule.isPaused ? "Resume" : "Pause") {
       schedule.togglePaused()
@@ -72,6 +76,9 @@ struct AppMenu: View {
     Text(
       "Next: \(TimeFormatter.format(duration: schedule.remainingTime))"
     )
+    Text("Version \(appVersion)")
+      .font(.caption)
+      .foregroundColor(.secondary)
   }
 }
 
@@ -101,6 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
   override init() {
     let logger = Logger(
       enabled: !Environment.isTesting,
+      level: Environment.isDebug ? .debug : .info,
       logFileURL: !Environment.isDebug ? Logger.defaultLogFileURL() : nil,
     )
     self.logger = logger
