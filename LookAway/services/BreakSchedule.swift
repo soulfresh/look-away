@@ -115,7 +115,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
       delayed = 0  // will be reset in startNextWorkCycle anyway
     case .scheduleStart:
       logger.log("Reset to start of schedule.")
-      count = -1  // must be reset in order to start at the beginning of the
+      index = -1  // must be reset in order to start at the beginning of the
     case .cycleStart:
       // Don't reset count - we want to stay on the current work cycle
       logger.log("Reset to start of current work cycle.")

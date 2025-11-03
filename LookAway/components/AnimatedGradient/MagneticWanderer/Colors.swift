@@ -336,7 +336,7 @@ extension MagneticWanderer {
 
       // Generate random colors with hues at least 10 degrees apart
       var hues: [Double] = []
-      let minHueDifference = 10.0 / 360.0  // 10 degrees as fraction of full circle
+      let minHueDifference = 20.0 / 360.0  // 10 degrees as fraction of full circle
 
       for _ in 0..<colorCount {
         var hue: Double
@@ -364,8 +364,9 @@ extension MagneticWanderer {
 
       // Create colors from the selected hues
       self.colors = hues.map { hue in
-        let saturation = Double.random(in: 0.5...0.8)
-        return Color(hue: hue, saturation: saturation, brightness: 0.8)
+        let saturation = Double.random(in: 0.5...0.7)
+        let brightness = Double.random(in: 0.6...0.7)
+        return Color(hue: hue, saturation: saturation, brightness: brightness)
       }
     }
 

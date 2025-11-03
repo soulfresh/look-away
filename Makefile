@@ -6,7 +6,7 @@ DESTINATION = 'platform=macOS'
 CONFIGURATION = Debug
 
 # Use .PHONY to declare targets that are not files.
-.PHONY: configure build run test test.unit clean help
+.PHONY: configure build run test test.unit clean release help
 
 configure: ## Makes the XCode configuration available to sourcekit-lsp.
 	xcode-build-server config \
@@ -38,6 +38,9 @@ clean: ## Cleans the build folder
 	xcodebuild clean \
 		-scheme $(SCHEME) \
 		-project $(PROJECT)
+
+release: ## Creates a new release build. Optional: make release TYPE=patch|minor|major
+	./release.sh $(TYPE)
 
 help: ## Show this help message.
 	@echo "Usage: make [target] [ARGUMENTS]"
