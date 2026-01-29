@@ -227,4 +227,39 @@ struct InactivityListenerTests {
 
     task.cancel()
   }
+
+  @Test("should handle task cancellation while waiting for inactivity")
+  func testCancellation() async throws {
+    let test = InactivityListenerTestContext(
+      interactionThreshold: 10,
+      lastInteraction: 5,
+    )
+
+    var didFinish = false
+    var didThrowCancellation = false
+    let task = Task {
+      do {
+        try await test.listener.waitForInactivity()
+        didFinish = true
+      } catch is CancellationError {
+        didThrowCancellation = true
+      }
+    }
+    
+    #expect(didFinish == false)
+    #expect(didThrowCancellation == false)
+    
+    // Advance time but user is still active
+    await test.clock.advance(by: .seconds(5))
+    
+    // Cancel the task (simulating system sleep)
+    task.cancel()
+    
+    // Give the cancellation a chance to propagate
+    await test.clock.advance(by: .seconds(1))
+    
+    // Verify the task was cancelled, not completed normally
+    #expect(didFinish == false)
+    #expect(didThrowCancellation == true)
+  }
 }

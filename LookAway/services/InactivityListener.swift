@@ -62,6 +62,14 @@ class InactivityListener<ClockType: Clock<Duration>> {
 
     // Merge both streams to monitor any A/V device changes
     for await (cameraActive, micActive) in merge(cameraStateChanged, microphoneStateChanged) {
+      // Check if the task has been cancelled (e.g., system going to sleep)
+      if Task.isCancelled {
+        logger.log("InactivityListener task was cancelled.")
+        cameraMonitor.stopListening()
+        microphoneMonitor.stopListening()
+        throw CancellationError()
+      }
+
       let anyAVDeviceActive = cameraActive || micActive
 
       if !anyAVDeviceActive {
