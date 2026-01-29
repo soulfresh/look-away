@@ -32,7 +32,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "674"
             endingLineNumber = "674"
-            landmarkName = "testStartLongestBreak()"
+            landmarkName = "testStartAtIndex()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -48,7 +48,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "661"
             endingLineNumber = "661"
-            landmarkName = "testStartLongestBreak()"
+            landmarkName = "testStartAtIndex()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

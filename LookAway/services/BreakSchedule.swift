@@ -55,15 +55,17 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   /**
    * - Parameter schedule: The schedule of work cycles to follow.
    * - Parameter logger: A logger to use for debugging and performance measurements.
+   * - Parameter sleepMonitor: An optional sleep monitor to use for detecting system sleep/wake events.
    */
   init(
     schedule _schedule: [WorkCycle<ClockType>],
     logger: Logging,
+    sleepMonitor: SystemSleepMonitor? = nil
   ) {
     self.logger = logger
     self.schedule = _schedule
 
-    self.sleepListener = SystemSleepMonitor(
+    self.sleepListener = sleepMonitor ?? SystemSleepMonitor(
       logger: LogWrapper(
         logger: logger, label: "SleepListener"
       )

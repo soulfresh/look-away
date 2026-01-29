@@ -10,12 +10,47 @@ let BREAK_1: TimeInterval = 6
 let BREAK_2: TimeInterval = 10
 let INACTIVITY_LENGTH: TimeInterval = 300
 
+class MockSleepNotificationCenter: DistributedNotificationCenterProtocol {
+  struct Observer {
+    let name: NSNotification.Name?
+    let block: @Sendable (Notification) -> Void
+  }
+  var observers: [Observer] = []
+
+  func addObserver(
+    forName name: NSNotification.Name?, object obj: Any?, queue: OperationQueue?,
+    using block: @escaping @Sendable (Notification) -> Void
+  ) -> NSObjectProtocol {
+    let observer = Observer(name: name, block: block)
+    observers.append(observer)
+    return observers.count - 1 as NSNumber
+  }
+
+  func removeObserver(_ observer: Any) {}
+
+  func post(name: NSNotification.Name) {
+    for obs in observers where obs.name == name {
+      obs.block(Notification(name: name))
+    }
+  }
+
+  func simulateSleep() {
+    post(name: NSNotification.Name("com.apple.screenIsLocked"))
+  }
+
+  func simulateWake() {
+    post(name: NSNotification.Name("com.apple.screenIsUnlocked"))
+  }
+}
+
 @MainActor
 class BreakScheduleTestContext {
   let clock: BreakClock = BreakClock()
   let schedule: BreakSchedule<TestClock<Duration>>
   let cameraProvider: MockCameraDeviceProvider
   let microphoneProvider: MockAudioDeviceProvider
+  let sleepNotificationCenter: MockSleepNotificationCenter
+  let sleepMonitor: SystemSleepMonitor
 
   init(
     workCycles: [(work: TimeInterval, break: TimeInterval)]? = nil,
@@ -23,6 +58,13 @@ class BreakScheduleTestContext {
     debug: Bool = false
   ) {
     let logger = Logger(enabled: debug)
+
+    let sleepNotificationCenter = MockSleepNotificationCenter()
+    self.sleepNotificationCenter = sleepNotificationCenter
+    self.sleepMonitor = SystemSleepMonitor(
+      logger: LogWrapper(logger: logger, label: "Test SleepMonitor"),
+      notificationCenter: sleepNotificationCenter
+    )
 
     let cameraProvider = MockCameraDeviceProvider(
       devices: [
@@ -91,6 +133,7 @@ class BreakScheduleTestContext {
     schedule = BreakSchedule(
       schedule: workCycleSchedule,
       logger: LogWrapper(logger: logger, label: "Test schedule"),
+      sleepMonitor: sleepMonitor
     )
   }
 
@@ -895,6 +938,37 @@ struct BreakScheduleTests {
     // We can advance the clock to see if any crashes occur.
     await clock.advanceBy(20)
     #expect(schedule == nil)
+
+    await context.afterEach()
+  }
+
+  @Test("Should reset to the beginning of the current work cycle when the system goes to sleep.")
+  func testSleepResetsWorkCycle() async {
+    // Use waitForInactivity: false for deterministic timing through the break phase
+    let context = BreakScheduleTestContext(waitForInactivity: false)
+    let clock = context.clock
+    let schedule = context.schedule
+    schedule.start()
+
+    // Verify initial state
+    #expect(schedule.isBlocking == false)
+    #expect(schedule.count == 1)
+
+    // Advance to the break phase: work(WORK_1) + transition(1) = WORK_1 + 1 seconds
+    await clock.advanceBy(WORK_1 + 1)
+    #expect(schedule.isBlocking == true)
+    #expect(schedule.remainingTime == BREAK_1)
+    #expect(schedule.count == 1)
+
+    // Simulate system sleep
+    context.sleepNotificationCenter.simulateSleep()
+
+    // Verify blocking windows are removed (the main behavior we want to test)
+    #expect(schedule.isBlocking == false)
+    // Verify we're still on the same work cycle
+    #expect(schedule.count == 1)
+    // Verify remaining time is reset to 0 (ready to restart when waking)
+    #expect(schedule.remainingTime == 0)
 
     await context.afterEach()
   }
