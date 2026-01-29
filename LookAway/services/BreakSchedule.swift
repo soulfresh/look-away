@@ -371,6 +371,10 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
       logger.log("System is going to sleep. Pausing the work cycle.")
       lastSleep = now
       pause()
+      // This will reset to the beginning of the current work cycle but
+      // will not start the timers. This way the blocking windows are removed if
+      // the system goes to sleep during a break.
+      reset(to: .cycleStart)
     }
   }
 
