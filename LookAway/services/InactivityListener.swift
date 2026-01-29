@@ -39,8 +39,13 @@ class InactivityListener<ClockType: Clock<Duration>> {
   }
 
   func waitForInactivity() async throws {
+    // Create continuations that we can control from the cancellation handler
+    var cameraContinuation: AsyncStream<Bool>.Continuation?
+    var microphoneContinuation: AsyncStream<Bool>.Continuation?
+    
     // Create AsyncStreams to receive camera and microphone connection state changes
     let cameraStateChanged = AsyncStream<Bool> { continuation in
+      cameraContinuation = continuation
       cameraMonitor.startListening { state in
         let isActive = state == .connected
         self.cameraIsActive = isActive
@@ -51,6 +56,7 @@ class InactivityListener<ClockType: Clock<Duration>> {
     }
 
     let microphoneStateChanged = AsyncStream<Bool> { continuation in
+      microphoneContinuation = continuation
       microphoneMonitor.startListening { state in
         let isActive = state == .connected
         self.microphoneIsActive = isActive
@@ -60,29 +66,34 @@ class InactivityListener<ClockType: Clock<Duration>> {
       continuation.yield(self.microphoneMonitor.isConnected)
     }
 
-    // Merge both streams to monitor any A/V device changes
-    for await (cameraActive, micActive) in merge(cameraStateChanged, microphoneStateChanged) {
-      // Check if the task has been cancelled (e.g., system going to sleep)
-      if Task.isCancelled {
-        logger.log("InactivityListener task was cancelled.")
-        cameraMonitor.stopListening()
-        microphoneMonitor.stopListening()
-        throw CancellationError()
-      }
+    // Wrap the stream iteration in a cancellation handler to ensure cleanup
+    try await withTaskCancellationHandler {
+      // Merge both streams to monitor any A/V device changes
+      for await (cameraActive, micActive) in merge(cameraStateChanged, microphoneStateChanged) {
+        // Check if the task has been cancelled (e.g., system going to sleep)
+        try Task.checkCancellation()
 
-      let anyAVDeviceActive = cameraActive || micActive
+        let anyAVDeviceActive = cameraActive || micActive
 
-      if !anyAVDeviceActive {
-        try await userActivityMonitor.waitForInactivity()
-        // Double-check A/V devices are still off after inactivity
-        if !self.cameraIsActive && !self.microphoneIsActive {
-          logger.log("User is inactive and all A/V devices are disconnected.")
-          cameraMonitor.stopListening()
-          microphoneMonitor.stopListening()
-          return
+        if !anyAVDeviceActive {
+          try await userActivityMonitor.waitForInactivity()
+          // Double-check A/V devices are still off after inactivity
+          if !self.cameraIsActive && !self.microphoneIsActive {
+            logger.log("User is inactive and all A/V devices are disconnected.")
+            cameraMonitor.stopListening()
+            microphoneMonitor.stopListening()
+            return
+          }
         }
+        // If any A/V device is active, keep waiting for disconnect
       }
-      // If any A/V device is active, keep waiting for disconnect
+    } onCancel: {
+      // When the task is cancelled, finish the streams and cleanup
+      logger.log("InactivityListener task was cancelled.")
+      cameraContinuation?.finish()
+      microphoneContinuation?.finish()
+      cameraMonitor.stopListening()
+      microphoneMonitor.stopListening()
     }
   }
 

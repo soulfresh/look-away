@@ -255,8 +255,8 @@ struct InactivityListenerTests {
     // Cancel the task (simulating system sleep)
     task.cancel()
     
-    // Give the cancellation a chance to propagate
-    await test.clock.advance(by: .seconds(1))
+    // Give the cancellation a chance to propagate through the withTaskCancellationHandler
+    try await Task.sleep(for: .milliseconds(100))
     
     // Verify the task was cancelled, not completed normally
     #expect(didFinish == false)
