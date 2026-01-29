@@ -55,15 +55,17 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
   /**
    * - Parameter schedule: The schedule of work cycles to follow.
    * - Parameter logger: A logger to use for debugging and performance measurements.
+   * - Parameter sleepMonitor: An optional sleep monitor to use for detecting system sleep/wake events.
    */
   init(
     schedule _schedule: [WorkCycle<ClockType>],
     logger: Logging,
+    sleepMonitor: SystemSleepMonitor? = nil
   ) {
     self.logger = logger
     self.schedule = _schedule
 
-    self.sleepListener = SystemSleepMonitor(
+    self.sleepListener = sleepMonitor ?? SystemSleepMonitor(
       logger: LogWrapper(
         logger: logger, label: "SleepListener"
       )
@@ -115,7 +117,7 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
       delayed = 0  // will be reset in startNextWorkCycle anyway
     case .scheduleStart:
       logger.log("Reset to start of schedule.")
-      count = -1  // must be reset in order to start at the beginning of the
+      index = -1  // must be reset in order to start at the beginning of the
     case .cycleStart:
       // Don't reset count - we want to stay on the current work cycle
       logger.log("Reset to start of current work cycle.")
@@ -371,6 +373,10 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
       logger.log("System is going to sleep. Pausing the work cycle.")
       lastSleep = now
       pause()
+      // This will reset to the beginning of the current work cycle but
+      // will not start the timers. This way the blocking windows are removed if
+      // the system goes to sleep during a break.
+      reset(to: .cycleStart)
     }
   }
 
