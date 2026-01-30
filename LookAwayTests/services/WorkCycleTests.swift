@@ -24,6 +24,7 @@ final class WorkCycleSpy: WorkCycle<TestClock<Duration>> {
   }
 }
 
+@MainActor
 class WorkCycleTestContext {
   let clock: BreakClock = BreakClock()
   let interactionTime: InteractionTime
@@ -96,6 +97,7 @@ class WorkCycleTestContext {
   }
 }
 
+@MainActor
 struct WorkCycleTests {
   @Test("Starts in the idle state.")
   func testInitialState() async {

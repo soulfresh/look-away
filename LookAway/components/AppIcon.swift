@@ -57,10 +57,10 @@ struct AppIcon: View {
       .foregroundStyle(
         blendColors(percent: percent, color1: Color.primary, color2: color)
       )
-      
+
       Image("LookAwayEye")
         .font(.system(size: size * 0.7, weight: .medium))
-      
+
       if state == .paused {
         Image(
           systemName: "line.diagonal"
@@ -85,8 +85,8 @@ struct AppIcon: View {
       }
     }
     .onChange(of: state) {
- _,
- newState in
+      _,
+      newState in
       if newState == .waiting {
         withAnimation(
           Animation

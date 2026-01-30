@@ -33,6 +33,11 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     max(0, count - 1 - skipped)
   }
 
+  /// Whether the system is currently sleeping (screen locked, screensaver, or system sleep).
+  var isSleeping: Bool {
+    sleepListener.isSleeping
+  }
+
   /// A timer that can be used for performance measurements.
   public let logger: Logging
 
@@ -65,11 +70,13 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.logger = logger
     self.schedule = _schedule
 
-    self.sleepListener = sleepMonitor ?? SystemSleepMonitor(
-      logger: LogWrapper(
-        logger: logger, label: "SleepListener"
+    self.sleepListener =
+      sleepMonitor
+      ?? SystemSleepMonitor(
+        logger: LogWrapper(
+          logger: logger, label: "SleepListener"
+        )
       )
-    )
 
     self.sleepListener.startListening { state in
       self.onSleepStateChange(state)

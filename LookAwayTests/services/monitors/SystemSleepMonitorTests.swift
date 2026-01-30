@@ -88,7 +88,7 @@ struct SystemSleepMonitorTests {
     test.mockNotificationCenter.post(name: unlockName)
     #expect(spy.calls.last == .awake, "Should emit awake on unlock")
     #expect(spy.callCount == 2)
-    
+
     // Simulate a second unlock event
     test.mockNotificationCenter.post(name: unlockName)
     #expect(spy.callCount == 2, "Should not emit duplicate events")

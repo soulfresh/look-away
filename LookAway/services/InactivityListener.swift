@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Clocks
 import Foundation
 
@@ -39,6 +40,12 @@ class InactivityListener<ClockType: Clock<Duration>> {
   }
 
   func waitForInactivity() async throws {
+    // Ensure monitors are stopped when this function exits, whether normally or via cancellation
+    defer {
+      cameraMonitor.stopListening()
+      microphoneMonitor.stopListening()
+    }
+
     // Create AsyncStreams to receive camera and microphone connection state changes
     let cameraStateChanged = AsyncStream<Bool> { continuation in
       cameraMonitor.startListening { state in
@@ -60,8 +67,11 @@ class InactivityListener<ClockType: Clock<Duration>> {
       continuation.yield(self.microphoneMonitor.isConnected)
     }
 
-    // Merge both streams to monitor any A/V device changes
-    for await (cameraActive, micActive) in merge(cameraStateChanged, microphoneStateChanged) {
+    // Combine both streams to monitor any A/V device changes
+    for await (cameraActive, micActive) in combineLatest(cameraStateChanged, microphoneStateChanged)
+    {
+      try Task.checkCancellation()
+
       let anyAVDeviceActive = cameraActive || micActive
 
       if !anyAVDeviceActive {
@@ -69,39 +79,14 @@ class InactivityListener<ClockType: Clock<Duration>> {
         // Double-check A/V devices are still off after inactivity
         if !self.cameraIsActive && !self.microphoneIsActive {
           logger.log("User is inactive and all A/V devices are disconnected.")
-          cameraMonitor.stopListening()
-          microphoneMonitor.stopListening()
           return
         }
       }
       // If any A/V device is active, keep waiting for disconnect
     }
-  }
 
-  /// Merges two AsyncStreams into a single stream of tuples
-  private func merge<T>(_ stream1: AsyncStream<T>, _ stream2: AsyncStream<T>) -> AsyncStream<(T, T)>
-  {
-    AsyncStream { continuation in
-      var value1: T? = nil
-      var value2: T? = nil
-
-      Task {
-        for await value in stream1 {
-          value1 = value
-          if let v1 = value1, let v2 = value2 {
-            continuation.yield((v1, v2))
-          }
-        }
-      }
-
-      Task {
-        for await value in stream2 {
-          value2 = value
-          if let v1 = value1, let v2 = value2 {
-            continuation.yield((v1, v2))
-          }
-        }
-      }
-    }
+    // If we exited the loop due to cancellation, throw so callers know we didn't
+    // complete normally (i.e., user did not become inactive)
+    try Task.checkCancellation()
   }
 }

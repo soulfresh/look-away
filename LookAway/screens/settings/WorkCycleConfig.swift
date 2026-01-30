@@ -4,7 +4,7 @@ struct WorkCycleConfig: Identifiable, Codable, Equatable, CustomStringConvertibl
   var id: UUID = UUID()
   var workLength: TimeSpan
   var breakLength: TimeSpan
-  
+
   var description: String {
     return "WorkCycleConfig(\(workLength) -> \(breakLength))"
   }

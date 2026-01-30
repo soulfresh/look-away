@@ -9,6 +9,19 @@ on:
       - '**'
 
 jobs:
+  format:
+    name: Format Check
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install swift-format
+        run: brew install swift-format
+
+      - name: Check formatting
+        run: swift-format lint --strict --recursive LookAway LookAwayTests
+
   build-and-test:
     name: Build and Test
     runs-on: macos-latest

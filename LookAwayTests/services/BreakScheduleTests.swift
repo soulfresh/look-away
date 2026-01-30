@@ -419,6 +419,7 @@ struct BreakScheduleTests {
 
     // Pause the timer
     schedule.togglePaused()
+    await clock.tick()  // Allow cancellation to be processed
 
     // Advance the clock; time should not change
     await clock.advanceBy(BREAK_1)
@@ -436,6 +437,7 @@ struct BreakScheduleTests {
 
     // Pause the timer
     schedule.togglePaused()
+    await clock.tick()  // Allow cancellation to be processed
 
     // Advance the clock; time should not change
     await clock.advanceBy(BREAK_1)
@@ -850,7 +852,8 @@ struct BreakScheduleTests {
     await context.clock.tick()
 
     #expect(context.schedule.index == 1)
-    #expect(context.schedule.count == 3)  // Count increments because startBreak(at:) calls startNextWorkCycle
+    // Count increments because startBreak(at:) calls startNextWorkCycle
+    #expect(context.schedule.count == 3)
     #expect(context.schedule.isBlocking == true)
     #expect(context.schedule.remainingTime == 8)  // Break length for current cycle
 
@@ -962,6 +965,7 @@ struct BreakScheduleTests {
 
     // Simulate system sleep
     context.sleepNotificationCenter.simulateSleep()
+    await Task.yield()  // Allow main actor dispatch to complete
 
     // Verify blocking windows are removed (the main behavior we want to test)
     #expect(schedule.isBlocking == false)

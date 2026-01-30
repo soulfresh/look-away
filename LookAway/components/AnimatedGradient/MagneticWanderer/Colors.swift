@@ -423,6 +423,7 @@ extension MagneticWanderer {
       let style = Int.random(in: 0...2)
       switch style {
       case 0:
+        // Bright colors
         return BlobColorGrid(
           columns: columns,
           rows: rows,
@@ -434,6 +435,7 @@ extension MagneticWanderer {
           )
         )
       case 1:
+        // Dark colors
         return BlobColorGrid(
           columns: columns,
           rows: rows,

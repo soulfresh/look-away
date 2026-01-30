@@ -45,7 +45,7 @@ struct TimeSpan: CustomStringConvertible, Equatable, Codable {
   var description: String {
     "TimeSpan(\(value) \(unit.pluralized(for: value)))"
   }
-  
+
   public static func == (lhs: TimeSpan, rhs: TimeSpan) -> Bool {
     return lhs.seconds == rhs.seconds
   }
