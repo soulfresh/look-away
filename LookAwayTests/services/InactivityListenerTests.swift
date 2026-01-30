@@ -227,4 +227,33 @@ struct InactivityListenerTests {
 
     task.cancel()
   }
+
+  @Test("should stop AV monitors when parent task is cancelled")
+  func testCancellationCleansUpMonitors() async throws {
+    let test = InactivityListenerTestContext(
+      interactionThreshold: 10,
+      lastInteraction: 5,
+    )
+
+    let task = Task {
+      try await test.listener.waitForInactivity()
+    }
+
+    // Give time for the listeners to be registered
+    await test.clock.advance(by: .seconds(1))
+
+    // Verify listeners are registered on both providers
+    #expect(test.cameraProvider.listeners.isEmpty == false)
+    #expect(test.microphoneProvider.listeners.isEmpty == false)
+
+    // Cancel the parent task
+    task.cancel()
+
+    // Wait for cancellation to propagate
+    _ = await task.result
+
+    // Verify that monitors were properly cleaned up via defer
+    #expect(test.cameraProvider.listeners.isEmpty == true)
+    #expect(test.microphoneProvider.listeners.isEmpty == true)
+  }
 }
