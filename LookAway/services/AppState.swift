@@ -8,7 +8,7 @@ import Foundation
 class AppState: ObservableObject {
   /// Whether or not to show the settings window.
   @Published var showSettings: Bool = false
-  
+
   /// The schedule instance used to manage work/break cycles.
   let schedule: BreakSchedule<ContinuousClock>
 
@@ -21,7 +21,6 @@ class AppState: ObservableObject {
     logger: Logging,
   ) {
     self.schedule = BreakSchedule(schedule: _schedule, logger: logger)
-      
 
     logger.log("Initialized with \(_schedule.count) work cycles.")
   }

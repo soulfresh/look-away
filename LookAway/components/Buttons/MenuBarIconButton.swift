@@ -24,7 +24,7 @@ extension View {
   func asImage(size: CGSize) -> NSImage {
     let hostingView = NSHostingView(rootView: self.frame(width: size.width, height: size.height))
     hostingView.frame = CGRect(origin: .zero, size: size)
-    hostingView.layoutSubtreeIfNeeded() // Ensure layout
+    hostingView.layoutSubtreeIfNeeded()  // Ensure layout
     guard let bitmapRep = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
       // Return a blank image if bitmap creation fails
       let blank = NSImage(size: size)

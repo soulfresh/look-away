@@ -70,11 +70,13 @@ class BreakSchedule<ClockType: Clock<Duration>>: ObservableObject {
     self.logger = logger
     self.schedule = _schedule
 
-    self.sleepListener = sleepMonitor ?? SystemSleepMonitor(
-      logger: LogWrapper(
-        logger: logger, label: "SleepListener"
+    self.sleepListener =
+      sleepMonitor
+      ?? SystemSleepMonitor(
+        logger: LogWrapper(
+          logger: logger, label: "SleepListener"
+        )
       )
-    )
 
     self.sleepListener.startListening { state in
       self.onSleepStateChange(state)

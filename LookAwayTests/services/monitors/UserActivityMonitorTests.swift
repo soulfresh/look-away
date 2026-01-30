@@ -29,16 +29,16 @@ class UserActivityMonitorTestContext {
 class UserActivityMonitorCallbackSpy {
   private(set) var calls: [CGEventType] = []
   var interactionTime: TimeInterval = 0
-  
+
   var callCount: Int {
     return calls.count
   }
-  
+
   func callback(type: CGEventType) -> TimeInterval {
     calls.append(type)
     return interactionTime
   }
-  
+
   func clear() {
     calls = []
   }
@@ -99,10 +99,10 @@ struct UserActivityMonitorTests {
     #expect(didFinish == false)
 
     spy.clear()
-    
+
     // Advance the clock to trigger the thresholds.
     await test.clock.advance(by: .seconds(10))
-    
+
     #expect(spy.callCount == 2)
     #expect(spy.calls.contains(.keyUp))
     #expect(spy.calls.contains(.leftMouseUp))
@@ -110,12 +110,12 @@ struct UserActivityMonitorTests {
 
     // Mimic the user becoming inactive.
     spy.interactionTime = 11
-    
+
     spy.clear()
-    
+
     // Advance to the next inactivity check
     await test.clock.advance(by: .seconds(10))
-    
+
     #expect(spy.callCount == 2)
     #expect(spy.calls.contains(.keyUp))
     #expect(spy.calls.contains(.leftMouseUp))
