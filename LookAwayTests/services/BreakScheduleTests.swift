@@ -962,6 +962,7 @@ struct BreakScheduleTests {
 
     // Simulate system sleep
     context.sleepNotificationCenter.simulateSleep()
+    await Task.yield()  // Allow main actor dispatch to complete
 
     // Verify blocking windows are removed (the main behavior we want to test)
     #expect(schedule.isBlocking == false)
