@@ -164,7 +164,7 @@ struct InactivityListenerTests {
 
     #expect(didFinish == false)
 
-    // It doesn't matter how long we wait if the carmera is running
+    // It doesn't matter how long we wait if the camera is running
     await test.clock.advance(by: .seconds(20))
 
     #expect(didFinish == false)
