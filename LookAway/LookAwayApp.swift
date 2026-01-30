@@ -254,6 +254,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject, NSWindowDe
    * Shows the window blockers that cover the user's screen.
    */
   func openScreenBlockers() {
+    // Safety check: don't open blockers if the system is sleeping
+    guard !appState.schedule.isSleeping else {
+      logger.log("Skipping blocker windows - system is sleeping")
+      return
+    }
+
+    // Safety check: don't open blockers if no screens are available
+    guard !NSScreen.screens.isEmpty else {
+      logger.log("Skipping blocker windows - no screens available")
+      return
+    }
+
     // Store the previously active application so we can restore it later.
     previouslyActiveApp = NSWorkspace.shared.frontmostApplication
 
